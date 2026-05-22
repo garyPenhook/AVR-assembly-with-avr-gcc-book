@@ -140,6 +140,12 @@ runnable code.
 - Deterministic ISR latency analysis
 - Example: two-task scheduler with Timer1
 
+#### Chapter 19 — CORDIC and Trig
+- CORDIC rotation and vectoring modes
+- BAM16 angle representation and Q1.15 vectors
+- Sine, cosine, atan2, magnitude, and rotation examples
+- Quadrant reduction and fixed-iteration math
+
 ### Appendices
 
 - A: ATmega328P register reference (quick lookup)
@@ -200,6 +206,7 @@ asm_book/
 - [x] Chapter 16 draft
 - [x] Chapter 17 draft
 - [x] Chapter 18 draft
+- [x] Chapter 19 draft
 - [x] Appendices
 - [ ] Pandoc build pipeline
 - [ ] Final PDF review
