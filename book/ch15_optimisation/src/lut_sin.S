@@ -2,8 +2,6 @@
 
 /* sin8 -- look up 8-bit sine value (0..255) from a 256-entry flash table
  *
- * C prototype: uint8_t sin8(uint8_t angle);
- *
  * Arguments:
  *   angle  R24  (uint8_t, 0..255 maps to 0..360 degrees)
  *
@@ -34,9 +32,11 @@ sin_table:
     .byte   9, 11, 12, 13, 15, 16, 18, 20, 21, 23, 25, 27, 29, 31, 33, 35
     .byte  37, 40, 42, 44, 47, 49, 52, 54, 57, 59, 62, 65, 67, 70, 73, 76
     .byte  79, 81, 84, 87, 90, 93, 96, 99,103,106,109,112,115,118,121,124
+.size sin_table, .-sin_table
 
 .section .text
 .global sin8
+.type   sin8, @function
 sin8:
     ldi   ZL, lo8(sin_table)    /* Z = base address of sin_table in flash   */
     ldi   ZH, hi8(sin_table)
@@ -44,3 +44,5 @@ sin8:
     adc   ZH, r1                /* propagate carry into ZH (r1 = 0)         */
     lpm   r24, Z                /* load table entry into R24 (return value) */
     ret
+
+.size   sin8, .-sin8

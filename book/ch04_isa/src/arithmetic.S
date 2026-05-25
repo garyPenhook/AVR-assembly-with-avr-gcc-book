@@ -2,7 +2,7 @@
  * arithmetic.S — add, subtract, compare, logic demos on ATtiny3217.
  *
  * Build:
- *   avr-as -mmcu=attiny3217 -o arithmetic.o arithmetic.S
+ *   avr-gcc -x assembler-with-cpp -mmcu=attiny3217 -c arithmetic.S -o arithmetic.o
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o arithmetic.elf arithmetic.o
  *   avr-objdump -d arithmetic.elf
  */

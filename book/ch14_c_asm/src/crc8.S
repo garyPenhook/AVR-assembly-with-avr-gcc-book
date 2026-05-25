@@ -1,60 +1,101 @@
 /*
- * crc8.S — CRC-8/SMBUS subroutine, callable from C
- * Target:  ATtiny3217 (or any AVR with avr-gcc)
- * Polynomial: 0x07 (x^8 + x^2 + x + 1), initial value 0x00
+ * crc8.S - standalone CRC-8/SMBus demonstration
+ * Target: ATtiny3217
  *
- * C prototype (declare in caller's .c file):
- *   uint8_t crc8(const uint8_t *data, uint8_t len);
+ * Polynomial: 0x07 (x^8 + x^2 + x + 1)
+ * Initial value: 0x00
+ * Bit order: MSB first
  *
- * GCC AVR calling convention:
- *   data → R25:R24  (16-bit pointer, high:low)
- *   len  → R22      (8-bit, occupies lower byte of R23:R22 pair)
- *   return R24      (8-bit return value)
+ * The program computes CRC-8/SMBus over four bytes in Flash:
+ *   01 02 03 04
+ * Expected result: 0xE3
  *
- * Registers clobbered (all caller-saved, no push/pop needed):
- *   R24 (accumulator / return), R25 (polynomial), R18 (current byte),
- *   R19 (bit counter), R20 (length counter), R30:R31 (Z pointer)
- *
- * Algorithm: bit-by-bit (no lookup table):
- *   for each byte b in data[0..len-1]:
- *       crc ^= b
- *       for i in 0..7:
- *           if crc & 0x80:
- *               crc = (crc << 1) ^ 0x07
- *           else:
- *               crc <<= 1
+ * Result is stored in SRAM at crc_result, then the program halts.
  */
 
 #include <avr/io.h>
 
 .equ CRC8_POLY, 0x07
+.equ MSG_LEN,   4
 
+/* -- Vector table ------------------------------------------------------- */
+.section .vectors, "ax", @progbits
+.global __vectors
+__vectors:
+    rjmp  main
+    .fill 30, 2, 0xCFFF
+
+/* -- Flash test message ------------------------------------------------- */
 .section .text
-.global crc8
-crc8:
-    movw  ZL, r24               /* Z = data pointer (copy from R25:R24)     */
-    mov   r20, r22              /* r20 = len                                */
-    ldi   r24, 0x00             /* CRC accumulator = 0                      */
-    ldi   r25, CRC8_POLY        /* r25 = 0x07 (polynomial constant)         */
-                                /* safe: pointer already copied to Z        */
+.Lmsg:
+    .byte 0x01, 0x02, 0x03, 0x04
+.balign 2
+
+/* -- SRAM result byte --------------------------------------------------- */
+.section .bss
+.global crc_result
+crc_result:
+    .skip 1
+
+/* -- Code --------------------------------------------------------------- */
+.section .text
+
+/*
+ * crc8_flash
+ *
+ * In:
+ *   Z  = byte address of first Flash byte
+ *   r20 = byte count
+ *
+ * Out:
+ *   r24 = CRC-8/SMBus result
+ *
+ * Clobbers:
+ *   r18, r19, r20, r24, r25, Z
+ */
+.global crc8_flash
+crc8_flash:
+    ldi   r24, 0x00
+    ldi   r25, CRC8_POLY
+
     tst   r20
-    breq  .Lcrc_done            /* if len == 0, return 0                    */
+    breq  .Lcrc_done
 
 .Lcrc_byte:
-    ld    r18, Z+               /* load next byte from SRAM, advance Z      */
-    eor   r24, r18              /* XOR byte into CRC accumulator            */
-    ldi   r19, 8                /* process 8 bits                           */
+    lpm   r18, Z+
+    eor   r24, r18
+    ldi   r19, 8
 
 .Lcrc_bit:
-    lsl   r24                   /* shift MSB into carry flag                */
-    brcc  .Lcrc_no_xor          /* if carry = 0, no feedback                */
-    eor   r24, r25              /* carry = 1: XOR with polynomial (0x07)    */
+    lsl   r24
+    brcc  .Lcrc_no_xor
+    eor   r24, r25
 .Lcrc_no_xor:
     dec   r19
-    brne  .Lcrc_bit             /* next bit                                 */
+    brne  .Lcrc_bit
 
     dec   r20
-    brne  .Lcrc_byte            /* next byte                                */
+    brne  .Lcrc_byte
 
 .Lcrc_done:
-    ret                         /* R24 holds the final CRC-8 value          */
+    ret
+
+.global main
+main:
+    /* Stack pointer */
+    ldi   r16, hi8(RAMEND)
+    out   SPH, r16
+    ldi   r16, lo8(RAMEND)
+    out   SPL, r16
+
+    /* Compute CRC over the Flash message. */
+    ldi   ZL, lo8(.Lmsg)
+    ldi   ZH, hi8(.Lmsg)
+    ldi   r20, MSG_LEN
+    rcall crc8_flash
+
+    /* Store result for debugger or memory inspection. */
+    sts   crc_result, r24
+
+.Lhalt:
+    rjmp  .Lhalt

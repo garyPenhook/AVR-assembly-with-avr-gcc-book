@@ -3,7 +3,7 @@
  *                 flash data access on ATtiny3217.
  *
  * Build:
- *   avr-as -mmcu=attiny3217 -o syntax_demo.o syntax_demo.S
+ *   avr-gcc -x assembler-with-cpp -mmcu=attiny3217 -c syntax_demo.S -o syntax_demo.o
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o syntax_demo.elf syntax_demo.o
  *   avr-objdump -s -d syntax_demo.elf   ; inspect all sections + disasm
  */

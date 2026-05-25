@@ -27,7 +27,9 @@
 
 ## Chapter Roadmap
 
+- Chapter 1: toolchain setup, simulator workflow, and detailed GDB usage
 - Chapter 4: number systems, integer representation, and basic arithmetic rules
+- Chapter 3: strings, null termination, and `.ascii` / `.asciz` usage
 - Chapter 5: bit-level load/store patterns, masks, field packing, and extraction
 - Chapter 6: unsigned and signed arithmetic, multi-byte math, and multiply support
 - Chapter 7: modular arithmetic, wraparound logic, and compare/branch math

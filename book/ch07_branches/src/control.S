@@ -2,15 +2,15 @@
  * control.S — branches, skip instructions, loops, jump tables on ATtiny3217.
  *
  * Build:
- *   avr-as -mmcu=attiny3217 -o control.o control.S
+ *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -c control.S -o control.o
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o control.elf control.o
  *   avr-objdump -d control.elf
  */
 
 #include <avr/io.h>
 
-/* ── Test data ────────────────────────────────────────────────────────── */
-.section .rodata
+/* ── Test data in flash ───────────────────────────────────────────────── */
+.section .progmem.data, "a", @progbits
 
 test_array:
     .byte 10, 20, 30, 40, 50, 60, 70, 80
@@ -36,9 +36,9 @@ main:
     ldi r16, hi8(RAMEND)
     out SPH, r16
 
-    /* ── if / else ────────────────────────────────────────────────────────
-     * C equivalent:
-     *   if (r16 > 100) { r16 = 100; } else { r16 += 5; }
+    /* ── Two-way decision ─────────────────────────────────────────────────
+     * If r16 is above 100, clamp it to 100.
+     * Otherwise, add 5.
      */
     ldi r16, 120
     cpi r16, 101            ; compare r16 with 101 (> 100 means >= 101)
@@ -49,24 +49,22 @@ else_branch:
     subi r16, -5            ; else-branch: r16 += 5
 end_if:
 
-    /* ── while loop ───────────────────────────────────────────────────────
-     * C equivalent:
-     *   while (r16 != 0) { r16--; }
-     * Test at top — loop may execute 0 times.
+    /* ── Top-tested loop ──────────────────────────────────────────────────
+     * Decrement r16 until it reaches zero.
+     * Test at top: loop may execute 0 times.
      */
     ldi r16, 10
-while_test:
+top_test:
     tst r16
-    breq while_done
+    breq top_done
     dec r16
-    rjmp while_test
-while_done:
+    rjmp top_test
+top_done:
 
-    /* ── do-while loop ────────────────────────────────────────────────────
-     * C equivalent:
-     *   do { r16++; } while (r16 != 50);
+    /* ── Bottom-tested loop ───────────────────────────────────────────────
+     * Increment r16 until it reaches 50.
      * No pre-test: always executes at least once.
-     * NOTE: do-while compiles more efficiently — test only at bottom.
+     * Test only at bottom, so the branch is also the loop-back.
      */
     clr r16
 do_body:
@@ -74,30 +72,28 @@ do_body:
     cpi r16, 50
     brne do_body            ; loop back if not 50 yet
 
-    /* ── for loop — fixed count ───────────────────────────────────────────
-     * C equivalent:
-     *   for (r18 = 8; r18 != 0; r18--) { r17 += 3; }
+    /* ── Fixed-count loop ─────────────────────────────────────────────────
      * Count down to 0: uses BRNE — cheapest test (no CPI needed).
      */
     clr r17
     ldi r18, 8
-for_loop:
+count_loop:
     subi r17, -3            ; r17 += 3
     dec  r18
-    brne for_loop
+    brne count_loop
 
     /* ── Array sum — worked example ───────────────────────────────────────
      * Sum 8 bytes from flash into 16-bit r25:r24.
-     * Use mapped flash (AVRxt): Z = address + MAPPED_PROGMEM_START.
+     * Use LPM: Z is the flash byte address of test_array.
      */
-    ldi ZL, lo8(test_array + MAPPED_PROGMEM_START)
-    ldi ZH, hi8(test_array + MAPPED_PROGMEM_START)
+    ldi ZL, lo8(test_array)
+    ldi ZH, hi8(test_array)
     clr r24                 ; sum low byte
     clr r25                 ; sum high byte
     ldi r18, ARRAY_LEN
 
 sum_loop:
-    ld   r16, Z+            ; load byte, advance pointer
+    lpm  r16, Z+            ; load byte from flash, advance pointer
     add  r24, r16           ; add to sum low byte
     adc  r25, r1            ; propagate carry (r1 = 0)
     dec  r18
@@ -110,8 +106,6 @@ sum_loop:
      * SBRC Rr, b — Skip if Bit b of Rr is Clear
      * SBRS Rr, b — Skip if Bit b of Rr is Set
      * Skips exactly one instruction (1-word or 2-word).
-     *
-     * C: if (flags & 0x01) { do_something(); }
      */
     ldi r16, 0b00000101     ; flags byte
     sbrc r16, 0             ; skip next if bit 0 clear — bit 0 IS set, no skip
@@ -127,10 +121,8 @@ sum_loop:
      * SBIC A, b — Skip if bit b of I/O reg A (addr 0x00–0x1F) is Clear
      * SBIS A, b — Skip if bit b of I/O reg A (addr 0x00–0x1F) is Set
      *
-     * On ATtiny3217, low I/O (0x00–0x1F) includes GPIOR0-2.
+     * On ATtiny3217, low I/O (0x00–0x1F) includes GPIOR0-3.
      * Use GPIOR0 as a fast 1-cycle-accessible flag byte.
-     *
-     * C: if (GPIOR0 & (1<<2)) { action(); }
      */
     ldi r16, (1 << 2)
     out GPIOR0, r16         ; GPIOR0 bit 2 = 1
@@ -139,46 +131,41 @@ sum_loop:
     sbic GPIOR0, 3          ; skip if bit 3 clear — IS clear → skip
     rcall action_b          ; skipped
 
-    /* ── Jump table (switch/case) ─────────────────────────────────────────
-     * C equivalent:
-     *   switch (r16) {
-     *     case 0: case0(); break;
-     *     case 1: case1(); break;
-     *     case 2: case2(); break;
-     *     default: default_handler(); break;
-     *   }
-     * Strategy: load Z with address of handler, IJMP.
-     * Table entries are word addresses (use pm() operator).
+    /* ── Jump table ───────────────────────────────────────────────────────
+     * Dispatch r16 values 0, 1, or 2 to separate handlers.
+     * Other values use the default handler.
+     * Strategy: load Z with the selected table entry and IJMP into it.
+     * Table entries are executable RJMP instructions, one word each.
      */
-    ldi r16, 1              ; test with case = 1
+    ldi r16, 1              ; selector = 1
 
-    cpi r16, 3              ; bounds check: case >= 3?
+    cpi r16, 3              ; bounds check: selector >= 3?
     brsh jtable_default     ; out of range → default
 
     ; Compute jump table entry address:
-    ; Each entry is 2 bytes (one word = one JMP address word)
-    ; table_base + (r16 * 2) — but entries are word addresses so:
-    ; Z = pm(jtable) + r16  (each pm() entry = 1 word = 2 bytes)
+    ; Each entry is 1 instruction word (2 bytes).
+    ; Z is a program word address, so:
+    ; Z = pm(jtable) + r16
     ldi ZL, lo8(pm(jtable))
     ldi ZH, hi8(pm(jtable))
-    add ZL, r16             ; Z += case_index (each entry is 1 word)
+    add ZL, r16             ; Z += selector index (each entry is 1 word)
     adc ZH, r1              ; carry
-    ijmp                    ; jump to address stored in Z (word address)
+    ijmp                    ; jump to selected RJMP entry in the table
 
 jtable_default:
     rcall default_handler
     rjmp jtable_done
 
 jtable:
-    rjmp case0_handler      ; case 0
-    rjmp case1_handler      ; case 1
-    rjmp case2_handler      ; case 2
+    rjmp entry0_handler     ; selector 0
+    rjmp entry1_handler     ; selector 1
+    rjmp entry2_handler     ; selector 2
 
-case0_handler: rcall action_a  ; case 0 body
+entry0_handler: rcall action_a
                rjmp jtable_done
-case1_handler: rcall action_b  ; case 1 body
+entry1_handler: rcall action_b
                rjmp jtable_done
-case2_handler: rcall action_c  ; case 2 body
+entry2_handler: rcall action_c
                rjmp jtable_done
 
 jtable_done:

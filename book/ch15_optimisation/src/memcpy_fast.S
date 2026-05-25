@@ -2,15 +2,13 @@
 
 /* memcpy_fast -- unrolled 4x copy with tail handler
  *
- * C prototype: void memcpy_fast(uint8_t *dst, const uint8_t *src, uint8_t len);
- *
- * Arguments (GCC AVR ABI):
+ * Register interface used by the assembly benchmark:
  *   dst   R25:R24  (pointer)
  *   src   R23:R22  (pointer)
  *   len   R20      (uint8_t)
  *
  * Strategy: process 4 bytes per loop iteration (unrolled x4),
- * handle remaining 0-3 bytes with a jump table on the tail count.
+ * handle remaining 0-3 bytes with a compact tail loop.
  *
  * Registers used (all call-clobbered, no push/pop needed):
  *   Z (R31:R30) = src
@@ -22,6 +20,7 @@
 
 .section .text
 .global memcpy_fast
+.type   memcpy_fast, @function
 memcpy_fast:
     movw  ZL, r22           /* Z = src                                      */
     movw  XL, r24           /* X = dst                                      */
@@ -58,3 +57,5 @@ memcpy_fast:
 
 .Lfast_done:
     ret
+
+.size   memcpy_fast, .-memcpy_fast

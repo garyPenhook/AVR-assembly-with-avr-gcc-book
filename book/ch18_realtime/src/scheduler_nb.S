@@ -53,11 +53,13 @@ tx_buf:     .space TXBUF_SIZE   /* ring buffer                                */
 tx_head:    .byte 0             /* write index (task writes here)             */
 tx_tail:    .byte 0             /* read index (ISR reads here)                */
 
-/* Heartbeat string "Hbeat\r\n" stored in flash */
-.section .rodata
+/* Heartbeat string "Hbeat\r\n" stored in flash for LPM access */
+.section .text
+.balign 2
 heartbeat_str:
     .ascii "Hbeat\r\n"
 #define HEARTBEAT_LEN 7
+.balign 2
 
 /* ── Code ───────────────────────────────────────────────────────────────── */
 .section .text
@@ -128,8 +130,9 @@ default_isr:
     reti
 
 /* ── uart_enqueue — add byte R16 to TX ring buffer ─────────────────────── */
-/* Clobbers: R16-R18, R26-R27. Does not block — drops byte if buffer full.  */
+/* Clobbers: R16-R17, R26-R27. Does not block — drops byte if buffer full.  */
 uart_enqueue:
+    push  r18
     lds   r17, tx_head
     mov   r18, r17
     inc   r18
@@ -156,6 +159,7 @@ uart_enqueue:
     ori   r16, USART_DREIE_bm
     sts   USART0_CTRLA, r16
 .Lenq_full:
+    pop   r18
     ret
 
 /* ── Reset handler ──────────────────────────────────────────────────────── */

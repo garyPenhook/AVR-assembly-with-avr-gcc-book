@@ -23,8 +23,8 @@
  *             = 1389.0  → 0x056D
  */
 .equ BAUD_9600,   1389
-.equ BAUD_LO,     lo8(1389)   /* 0x6D */
-.equ BAUD_HI,     hi8(1389)   /* 0x05 */
+.equ BAUD_LO,     0x6D
+.equ BAUD_HI,     0x05
 
 .equ TXD_BIT,     2           /* PB2 */
 .equ RXD_BIT,     3           /* PB3 */
@@ -75,6 +75,7 @@ isr_default:
 .Lready_str:
     .byte 'R', 'e', 'a', 'd', 'y', '\r', '\n'
 .equ READY_LEN, 7
+.balign 2
 
 /* ── usart_tx_byte — send r16 via polling TX ──────────────────────────── */
 /*
@@ -134,10 +135,10 @@ usart0_rxc_isr:
 .global main
 main:
     /* Stack pointer */
-    ldi   r16, lo8(RAMEND)
-    out   SPL, r16
     ldi   r16, hi8(RAMEND)
     out   SPH, r16
+    ldi   r16, lo8(RAMEND)
+    out   SPL, r16
 
     /* Configure TXD pin PB2 as output */
     sbi   VPORTB_DIR, TXD_BIT
@@ -147,7 +148,8 @@ main:
     /* USART0 setup:
      *   BAUD:    9600 bps register value
      *   CTRLC:   8N1 (8-bit data, no parity, 1 stop bit) — default after reset
-     *   CTRLB:   enable TX, enable RX, enable RXCIE (RX Complete Interrupt)
+     *   CTRLB:   enable TX and RX
+     *   CTRLA:   enable RXCIE (RX Complete Interrupt)
      */
     ldi   r16, BAUD_LO
     sts   USART0_BAUDL, r16
@@ -158,9 +160,13 @@ main:
      * USART_CHSIZE_8BIT_gc | no parity | 1 stop bit — correct for 8N1.
      * No write needed. */
 
-    /* Enable TX + RX + RX Complete interrupt */
-    ldi   r16, (USART_TXEN_bm | USART_RXEN_bm | USART_RXCIE_bm)
+    /* Enable TX + RX */
+    ldi   r16, (USART_TXEN_bm | USART_RXEN_bm)
     sts   USART0_CTRLB, r16
+
+    /* Enable RX Complete interrupt */
+    ldi   r16, USART_RXCIE_bm
+    sts   USART0_CTRLA, r16
 
     sei                         /* global interrupt enable                   */
 

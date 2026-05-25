@@ -1,8 +1,8 @@
 /*
- * subroutines.S — call/ret, stack frames, ABI, recursive factorial.
+ * subroutines.S — call/ret, stack frames, register discipline, recursion.
  *
  * Build:
- *   avr-as -mmcu=attiny3217 -o subroutines.o subroutines.S
+ *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -c subroutines.S -o subroutines.o
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o subroutines.elf subroutines.o
  *   avr-objdump -d subroutines.elf
  */
@@ -16,12 +16,13 @@ __vectors:
 
 /* ════════════════════════════════════════════════════════════════════════
  * simple_add — add two 8-bit unsigned numbers, return 16-bit result.
- *   ABI: a → r24,  b → r22
- *   Return: r25:r24
- *   Clobbers: nothing (only r24/r25 per ABI)
+ *   Input:  r24 = first addend, r22 = second addend
+ *   Output: r25:r24 = 16-bit sum
+ *   Clobbers: r24, r25
  * ════════════════════════════════════════════════════════════════════════ */
 .section .text
 
+.global simple_add
 simple_add:
     add  r24, r22       ; r24 = a + b (may carry)
     clr  r25
@@ -30,36 +31,38 @@ simple_add:
 
 /* ════════════════════════════════════════════════════════════════════════
  * save_restore — demonstrates callee-saved register discipline.
- * Uses r14, r15 (call-preserved r2–r17): must save and restore.
+ * Uses r14, r15: this routine saves and restores them.
  * ════════════════════════════════════════════════════════════════════════ */
+.global save_restore
 save_restore:
     push r14            ; save call-preserved regs we will use
     push r15
-    ; ... function body uses r14, r15 freely ...
-    ldi  r16, 0xAA      ; r16 = call-clobbered, no save needed
-    mov  r14, r16       ; r14 = call-preserved, saved above
+    ; ... routine body uses r14, r15 freely ...
+    ldi  r16, 0xAA      ; r16 = scratch
+    mov  r14, r16       ; r14 was saved above
     ; ... more work ...
     pop  r15            ; restore in reverse push order
     pop  r14
     ret
 
 /* ════════════════════════════════════════════════════════════════════════
- * with_frame — function that uses local variables via Y frame pointer.
+ * with_frame — routine that uses local variables via Y frame pointer.
  *   Allocates 4 bytes of locals on the stack.
- *   Local layout (Y = SP after saved regs):
+ *   Local layout (Y = SP after allocation):
  *     Y+1 = local_a  (1 byte)
  *     Y+2 = local_b  (1 byte)
  *     Y+3 = local_c  (2 bytes, Y+3=lo, Y+4=hi)
  * ════════════════════════════════════════════════════════════════════════ */
+.global with_frame
 with_frame:
     /* Prologue */
-    push r28            ; save Y (call-preserved)
+    push r28            ; save Y
     push r29
-    in   r28, SPL       ; Y = current SP (points just below saved r29)
+    in   r28, SPL       ; Y = current SP (below saved r29)
     in   r29, SPH
     sbiw r28, 4         ; allocate 4 bytes of locals
-    out  SPH, r29       ; write SP high first (AVR rule: SPH before SPL
-    out  SPL, r28       ;   when decreasing SP to avoid momentary wrong SP)
+    out  SPH, r29       ; write SP high first
+    out  SPL, r28       ; write SPL last; hardware masks interrupts briefly
 
     /* Body: access locals via LDD/STD Y+offset */
     ldi  r16, 10
@@ -90,6 +93,7 @@ with_frame:
  *   Output: r25:r24 = (r16 × r25:r24) low 16 bits
  *   Clobbers: r0, r1 (cleared before return)
  * ════════════════════════════════════════════════════════════════════════ */
+.global mul8x16
 mul8x16:
     mul   r16, r24          ; r1:r0 = r16 × multiplicand_lo
     movw  r22, r0           ; r23:r22 = partial low result
@@ -101,18 +105,12 @@ mul8x16:
 
 /* ════════════════════════════════════════════════════════════════════════
  * factorial — recursive unsigned factorial.
- *   Input:  r24 = n (uint8_t, 0 ≤ n ≤ 8 for 16-bit result)
- *   Output: r25:r24 = n! (uint16_t)
- *   Clobbers: r0, r1, r22, r23 (caller-clobbered per ABI)
+ *   Input:  r24 = n (0 <= n <= 8 for 16-bit result)
+ *   Output: r25:r24 = n!
+ *   Clobbers: r0, r1, r16, r22, r23
  *
  *   Stack usage per call: 2 bytes return address + 1 byte saved n
  *                       = 3 bytes.  Max depth for n=8: 24 bytes.
- *
- *   C equivalent:
- *     uint16_t factorial(uint8_t n) {
- *         if (n <= 1) return 1;
- *         return n * factorial(n - 1);
- *     }
  * ════════════════════════════════════════════════════════════════════════ */
 .global factorial
 
@@ -122,7 +120,7 @@ factorial:
     brlo  .Lfact_base
 
     /* Recursive case */
-    push  r24               ; save n — RCALL will clobber r24 via recursive return
+    push  r24               ; save n across the recursive call
     dec   r24               ; n - 1
     rcall factorial         ; r25:r24 = factorial(n-1)
 
@@ -143,9 +141,9 @@ factorial:
 
 main:
     ldi r16, lo8(RAMEND)
+    ldi r17, hi8(RAMEND)
+    out SPH, r17
     out SPL, r16
-    ldi r16, hi8(RAMEND)
-    out SPH, r16
 
     /* Test simple_add: 200 + 100 = 300 = 0x012C */
     ldi  r24, 200

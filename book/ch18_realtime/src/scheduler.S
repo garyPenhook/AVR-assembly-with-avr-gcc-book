@@ -10,7 +10,7 @@
  *   task_uart — send 'H' over USART0 every 1000 ticks (1 s)
  *
  * Build:
- *   avr-gcc -mmcu=attiny3217 -nostartfiles -o scheduler.elf scheduler.S
+ *   avr-gcc -mmcu=attiny3217 -nostartfiles -nodefaultlibs -o scheduler.elf scheduler.S
  *   avr-objcopy -O ihex scheduler.elf scheduler.hex
  *   avrdude -p t3217 -c serialupdi -P /dev/ttyUSB0 -U flash:w:scheduler.hex:i
  */
@@ -73,6 +73,7 @@ reset_handler:
     out   _SFR_IO_ADDR(SPH), r16
     ldi   r16, lo8(RAMEND)
     out   _SFR_IO_ADDR(SPL), r16
+    clr   r1                  /* project zero register for ADC-with-carry use */
 
     sbi   VPORTA_DIR, LED_PIN   /* PA3 output                                */
     sbi   VPORTA_OUT, LED_PIN   /* HIGH = LED off (active low)                */

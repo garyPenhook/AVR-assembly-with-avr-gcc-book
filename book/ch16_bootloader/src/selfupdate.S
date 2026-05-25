@@ -19,8 +19,8 @@
  *
  * Flash write:
  *   NVMCTRL PAGEERASEWRITE command, CCP-protected.
- *   64-byte page size. Writes are deferred until a 64-byte boundary is
- *   crossed — pages are written when full.
+ *   64-byte page size. The host helper coalesces input into page-sized
+ *   records so each data record starts on a page boundary.
  *
  * Build (no BOOTEND protection):
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -nodefaultlibs \
@@ -38,7 +38,7 @@
  *     avrdude -c serialupdi -p t3217 -P /dev/ttyUSB0 -U fuse8:w:0x04:m
  *
  * Registers (global, live throughout the main loop):
- *   Z  (R31:R30)  flash write address — current page base, advances by page
+ *   Z  (R31:R30)  mapped flash write address: 0x8000 + flash byte address
  *   X  (R27:R26)  SRAM page buffer pointer — resets to PAGE_BUF each record
  *   R16           scratch: UART byte, NVMCTRL command, loop data
  *   R17           checksum accumulator (zeroed at each record start)
@@ -49,8 +49,6 @@
  *   R20, R21      scratch in helpers
  *   R15           saved high nibble in recv_hex_byte
  */
-
-#include <avr/io.h>
 
 /* ── NVMCTRL ────────────────────────────────────────────────────────────── */
 .equ NVMCTRL_CTRLA,               0x1000
@@ -94,11 +92,18 @@
 
 /* ── Flash geometry ─────────────────────────────────────────────────────── */
 .equ PAGE_SIZE, 64                /* ATtiny3217: 64 bytes per page            */
+.equ FLASH_DATA_BASE_HI, 0x80     /* tinyAVR flash is mapped at data 0x8000   */
+
+/* ── CPU register aliases ──────────────────────────────────────────────── */
+.equ SPL, 0x3D
+.equ SPH, 0x3E
+.equ RAMEND, 0x3FFF
 
 /* ── SRAM page buffer ───────────────────────────────────────────────────── */
 /* 64-byte buffer used to accumulate data before a page write.               */
 /* Placed in .bss (zero-initialised by convention, but we overwrite anyway). */
 .section .bss
+.balign PAGE_SIZE
 page_buf:
     .space PAGE_SIZE              /* 64 bytes of uninitialised SRAM           */
 
@@ -185,8 +190,8 @@ hex_nibble:
  *
  * Example: receives '4', 'B' → r16 = 0x4B
  *
- * Uses R15 to save the high nibble (R15 is not a standard call-clobbered
- * register in GCC ABI — safe to use here in a non-C mixed environment).
+ * Uses R15 to save the high nibble. It is pushed and popped so callers do not
+ * observe the temporary value.
  * Clobbers: R15, R20 (via usart_rx)
  * ═══════════════════════════════════════════════════════════════════════════ */
 recv_hex_byte:
@@ -216,7 +221,8 @@ nvm_wait:
 /* ═══════════════════════════════════════════════════════════════════════════
  * nvm_write_page — write the 64-byte SRAM page buffer to flash
  *
- * Entry:  Z = flash byte address of target page (64-byte aligned)
+ * Entry:  Z = mapped flash data address of target page:
+ *             0x8000 + flash byte address, 64-byte aligned
  *         X = SRAM address of 64-byte source (page_buf or equivalent)
  * Exit:   Z += 64 (advanced to next page)
  *         X += 64 (advanced past source data)
@@ -239,21 +245,23 @@ nvm_write_page:
     brne  .Lnvm_fill
 
     /* Step 4: rewind Z to page base */
-    sbiw  ZL, PAGE_SIZE               /* Z -= 64                              */
+    subi  ZL, lo8(PAGE_SIZE)          /* Z -= 64                              */
+    sbci  ZH, hi8(PAGE_SIZE)
 
     /* Step 5: CCP-protected PAGEERASEWRITE */
     cli
-    ldi   r16, CCP_SPM_gc
-    sts   CPU_CCP, r16                /* open 4-cycle CCP window              */
     ldi   r16, NVMCTRL_CMD_PAGEERASEWRITE_gc
-    sts   NVMCTRL_CTRLA, r16         /* issue command (within window)        */
+    ldi   r17, CCP_SPM_gc
+    sts   CPU_CCP, r17                /* open CCP window                      */
+    sts   NVMCTRL_CTRLA, r16          /* next instruction: issue command      */
     sei
 
     /* Step 6: wait for completion */
     rcall nvm_wait
 
     /* Advance Z to next page */
-    adiw  ZL, PAGE_SIZE               /* Z += 64                              */
+    subi  ZL, lo8(-PAGE_SIZE)         /* Z += 64                              */
+    sbci  ZH, hi8(-PAGE_SIZE)
     ret
 
 
@@ -286,9 +294,9 @@ selfupdate_main:
     ldi   r16, '\n'
     rcall usart_tx
 
-    /* ── Z = 0: flash write pointer starts at address 0x0000 ──────────── */
+    /* ── Z = 0x8000: mapped flash pointer for flash byte address 0 ────── */
     clr   ZL
-    clr   ZH
+    ldi   ZH, FLASH_DATA_BASE_HI
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Main record loop
@@ -339,18 +347,27 @@ selfupdate_main:
     /* ── Data record: set flash write address from header ──────────────── */
     /*
      * The record header contains the target byte address in flash.
-     * Z = R25:R24 = addr_hi:addr_lo from the record.
-     * We also initialise X to point at the start of the SRAM page buffer.
+     * Z = 0x8000 + R25:R24, because tinyAVR flash is accessed through
+     * the mapped program-memory window in data space.
      *
-     * Assumption: the host sends records in order, with addresses that
-     * advance exactly PAGE_SIZE bytes per page. The address in each record
-     * is authoritative — we set Z from it rather than relying on it to
-     * equal our running pointer.
+     * Assumption: the host sends page-sized records. The provided
+     * send_hex.py helper coalesces ordinary HEX files into this form.
      */
     mov   ZL, r24
     mov   ZH, r25
+    subi  ZH, -FLASH_DATA_BASE_HI     /* Z += 0x8000                         */
 
-    /* Point X to the SRAM page buffer */
+    /* Clear the SRAM page buffer to erased-flash value before receiving data. */
+    ldi   XL, lo8(page_buf)
+    ldi   XH, hi8(page_buf)
+    ldi   r20, PAGE_SIZE
+    ldi   r21, 0xFF
+.Lclear_page_buf:
+    st    X+, r21
+    dec   r20
+    brne  .Lclear_page_buf
+
+    /* Point X back to the SRAM page buffer. */
     ldi   XL, lo8(page_buf)
     ldi   XH, hi8(page_buf)
 

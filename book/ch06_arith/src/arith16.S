@@ -2,7 +2,7 @@
  * arith16.S — 16-bit arithmetic, shifts, MUL family, division on ATtiny3217.
  *
  * Build:
- *   avr-as -mmcu=attiny3217 -o arith16.o arith16.S
+ *   avr-gcc -x assembler-with-cpp -mmcu=attiny3217 -c arith16.S -o arith16.o
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o arith16.elf arith16.o
  *   avr-objdump -d arith16.elf
  */
@@ -114,7 +114,7 @@ main:
      * Routine below: r16 / r17 → quotient r18, remainder r19           */
     ldi r16, 100
     ldi r17, 7
-    rcall div8u             ; r18 = 14 (quotient), r19 = 2 (remainder)
+    rcall div8u_clean       ; r18 = 14 (quotient), r19 = 2 (remainder)
 
     /* ── Absolute value of signed 8-bit ─────────────────────────────────
      * If r16 < 0: negate it. Else leave it.                            */
@@ -127,52 +127,24 @@ halt:
     rjmp halt
 
 /* ════════════════════════════════════════════════════════════════════════
- * div8u — unsigned 8-bit division
+ * div8u_clean — restoring unsigned 8-bit division
  *   Input:  r16 = dividend, r17 = divisor
  *   Output: r18 = quotient, r19 = remainder
  *   Clobbers: r20 (loop counter)
  * ════════════════════════════════════════════════════════════════════════ */
-div8u:
-    clr  r18                ; quotient = 0
-    clr  r19                ; remainder = 0
-    ldi  r20, 8             ; 8 bits to process
-
-1:
-    lsl  r16                ; shift dividend left: MSB → C
-    rol  r19                ; shift C into remainder LSB
-    cp   r19, r17           ; remainder >= divisor?
-    brlo 2f                 ; no: skip subtraction
-    sub  r19, r17           ; yes: remainder -= divisor
-    inc  r18                ; set quotient bit (will be shifted in on next lsl)
-    ; Note: the quotient bit accumulates via the INC trick combined
-    ; with the fact that bit 0 of r16 is 0 after LSL.
-    ; Cleaner: use separate quotient accumulation below.
-2:
-    dec  r20
-    brne 1b
-    ret
-
-/* ════════════════════════════════════════════════════════════════════════
- * div8u_clean — cleaner restoring division, quotient in r18 per bit
- *   Input:  r16 = dividend, r17 = divisor
- *   Output: r18 = quotient, r19 = remainder
- *   Clobbers: r20
- * ════════════════════════════════════════════════════════════════════════ */
 div8u_clean:
+    clr  r18                ; quotient = 0
     clr  r19                ; remainder = 0
     ldi  r20, 8
 1:
     lsl  r16                ; shift MSB of dividend into C
     rol  r19                ; remainder = (remainder << 1) | dividend_MSB
-    sec                     ; tentatively set quotient bit
+    lsl  r18                ; quotient <<= 1
     cp   r19, r17
-    brsh 2f                 ; remainder >= divisor: keep bit set, subtract
-    clc                     ; remainder < divisor: clear quotient bit
-    rjmp 3f
-2:
+    brlo 2f                 ; remainder < divisor: quotient bit stays 0
     sub  r19, r17
-3:
-    rol  r18                ; shift quotient bit (C) into r18 LSB
+    ori  r18, 1             ; quotient bit = 1
+2:
     dec  r20
     brne 1b
     ret

@@ -52,6 +52,7 @@ __vectors:
  * Returns received byte in r16.
  * Clobbers: r17 (status poll scratch)
  */
+.global spi_transfer
 spi_transfer:
     sts   SPI0_DATA, r16            /* writing DATA starts the transfer      */
 .Lspi_wait:
@@ -118,10 +119,10 @@ eeprom_wait_wip:
 .global main
 main:
     /* Stack pointer */
-    ldi   r16, lo8(RAMEND)
-    out   SPL, r16
     ldi   r16, hi8(RAMEND)
     out   SPH, r16
+    ldi   r16, lo8(RAMEND)
+    out   SPL, r16
 
     /* Configure PA1 (MOSI), PA3 (SCK), PA4 (CS) as outputs.
      * PA2 (MISO) stays as input (reset default). */

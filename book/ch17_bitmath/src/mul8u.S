@@ -12,6 +12,7 @@
 #include <avr/io.h>
 
 .global mul8u
+.type mul8u, @function
 mul8u:
     clr   r24
     clr   r25
@@ -28,6 +29,7 @@ mul8u:
     dec   r18
     brne  .Lmul8u_loop
     ret
+.size mul8u, .-mul8u
 
 /* mul8s — signed 8×8 → 16 multiply
  *
@@ -38,11 +40,11 @@ mul8u:
  */
 
 .global mul8s
+.type mul8s, @function
 mul8s:
     clr   r24
     clr   r25
     /* sign-extend R16 into R20 */
-    lsl   r20           /* clear r20 first via rotation trick below */
     mov   r20, r16
     lsl   r20           /* old bit 7 of R16 → C */
     sbc   r20, r20      /* r20 = 0xFF if negative, 0x00 if positive */
@@ -64,3 +66,4 @@ mul8s:
     sbc   r25, r20
 .Lmul8s_done:
     ret
+.size mul8s, .-mul8s

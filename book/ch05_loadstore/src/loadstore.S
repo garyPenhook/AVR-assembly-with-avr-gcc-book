@@ -3,7 +3,7 @@
  *               Copies a flash table to SRAM two ways: LPM and mapped LD.
  *
  * Build:
- *   avr-as -mmcu=attiny3217 -o loadstore.o loadstore.S
+ *   avr-gcc -x assembler-with-cpp -mmcu=attiny3217 -c loadstore.S -o loadstore.o
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o loadstore.elf loadstore.o
  *   avr-objdump -d -s loadstore.elf
  */
@@ -63,7 +63,8 @@ copy_lpm:
      * Method 2: LD with mapped flash address (AVRxt feature).
      * Add MAPPED_PROGMEM_START (0x8000) to the flash address.
      * Z now points into the data address space where flash is mapped.
-     * Reads exactly like SRAM — no special instruction needed.
+     * Reads use the normal LD instruction. Flash writes are NVMCTRL-controlled,
+     * so mapped flash must not be treated as ordinary scratch SRAM.
      */
     ldi ZL,  lo8(powers_of_two + MAPPED_PROGMEM_START)
     ldi ZH,  hi8(powers_of_two + MAPPED_PROGMEM_START)

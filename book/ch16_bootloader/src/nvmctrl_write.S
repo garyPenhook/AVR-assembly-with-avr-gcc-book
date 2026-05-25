@@ -22,12 +22,12 @@
  *
  * CCP (Configuration Change Protection):
  *   The PAGEERASEWRITE command requires the CCP unlock key 0x9D to be written
- *   to CPU_CCP (0x0034) within 4 clock cycles of the NVMCTRL_CTRLA write.
- *   Steps 6 and 7 are two STS instructions: 2 + 2 = 4 cycles exactly.
- *   No instruction may be placed between them.
+ *   to CPU_CCP (0x0034), then the NVMCTRL_CTRLA write must execute within
+ *   the next four CPU instructions. This source makes it the next instruction.
  *
  * Entry conditions for nvm_write_page:
- *   Z  (R31:R30) = flash byte address of target page (must be 64-byte aligned)
+ *   Z  (R31:R30) = mapped flash data address of target page
+ *                  (0x8000 + flash byte address, 64-byte aligned)
  *   X  (R27:R26) = SRAM address of 64-byte source data buffer
  *
  * Exit conditions:
@@ -47,8 +47,6 @@
  *   between them) in the CCP sequence.
  */
 
-#include <avr/io.h>
-
 /* ── NVMCTRL register addresses (all outside I/O space: use LDS/STS) ───── */
 .equ NVMCTRL_CTRLA,   0x1000       /* command register                      */
 .equ NVMCTRL_CTRLB,   0x1001       /* BOOTLOCK / APCWP configuration        */
@@ -66,7 +64,7 @@
 .equ NVMCTRL_CMD_PAGEERASE_gc,      0x02  /* erase one page                  */
 .equ NVMCTRL_CMD_PAGEERASEWRITE_gc, 0x03  /* erase + write (recommended)     */
 .equ NVMCTRL_CMD_PAGEBUFERASE_gc,   0x04  /* clear page buffer               */
-.equ NVMCTRL_CMD_CHIPERASE_gc,      0x05  /* erase entire flash (not boot)   */
+.equ NVMCTRL_CMD_CHIPERASE_gc,      0x05  /* erase flash array; avoid here   */
 .equ NVMCTRL_CMD_EEERASE_gc,        0x06  /* erase EEPROM                    */
 .equ NVMCTRL_CMD_FUSEWRITE_gc,      0x07  /* write fuses (restricted)        */
 
@@ -106,7 +104,8 @@ nvm_wait:
  * nvm_write_page — write one 64-byte page from SRAM to flash
  *
  * Entry:
- *   Z (R31:R30) = flash BYTE address of target page
+ *   Z (R31:R30) = mapped flash data address of target page
+ *                 0x8000 + flash byte address
  *                 MUST be 64-byte aligned (bits 5:0 = 0)
  *   X (R27:R26) = SRAM address of 64-byte source buffer
  *
@@ -149,7 +148,8 @@ nvm_write_page:
      * SBIW ZL, 64 subtracts 64 from the 16-bit Z register pair in 2 cycles.
      * Z now points to the base address of the page we just filled.
      */
-    sbiw  ZL, PAGE_SIZE               /* 2 cy: Z -= 64, Z → page start      */
+    subi  ZL, lo8(PAGE_SIZE)          /* Z -= 64                             */
+    sbci  ZH, hi8(PAGE_SIZE)
 
     /* ── Step 5–7: CCP-protected PAGEERASEWRITE command ────────────────── */
     /*
@@ -163,17 +163,18 @@ nvm_write_page:
      * IMPORTANT: Do NOT place any instruction between the two STS calls.
      */
     cli                               /* 1 cy: disable interrupts             */
-    ldi   r16, CCP_SPM_gc             /* 1 cy: r16 = 0x9D (load before window)*/
-    sts   CPU_CCP, r16                /* 2 cy: write key → open CCP window    */
-    ldi   r16, NVMCTRL_CMD_PAGEERASEWRITE_gc  /* 1 cy: r16 = 0x03            */
-    sts   NVMCTRL_CTRLA, r16         /* 2 cy: issue command (within window)  */
+    ldi   r16, NVMCTRL_CMD_PAGEERASEWRITE_gc  /* command ready before unlock */
+    ldi   r17, CCP_SPM_gc             /* key ready before unlock              */
+    sts   CPU_CCP, r17                /* open CCP window                      */
+    sts   NVMCTRL_CTRLA, r16          /* next instruction: issue command      */
     sei                               /* 1 cy: re-enable interrupts           */
 
     /* ── Step 8: Wait for the erase+write to complete ──────────────────── */
     rcall nvm_wait                    /* spin until FBUSY = 0                */
 
     /* ── Advance Z to start of next page for caller convenience ────────── */
-    adiw  ZL, PAGE_SIZE               /* 2 cy: Z += 64, Z → next page start  */
+    subi  ZL, lo8(-PAGE_SIZE)         /* Z += 64                             */
+    sbci  ZH, hi8(-PAGE_SIZE)
 
     ret                               /* 4 cy: return to caller               */
 
@@ -182,7 +183,8 @@ nvm_write_page:
  * nvm_erase_page — erase one flash page (set all bytes to 0xFF)
  *
  * Entry:
- *   Z (R31:R30) = flash BYTE address of any byte within the target page
+ *   Z (R31:R30) = mapped flash data address of any byte within the target page
+ *                 (0x8000 + flash byte address)
  *                 (the hardware ignores the low 6 bits — page-aligned auto.)
  * Exit:
  *   Z unchanged
@@ -198,10 +200,10 @@ nvm_erase_page:
     sts   NVMCTRL_CTRLA, r16          /* clear any previous error             */
 
     cli
-    ldi   r16, CCP_SPM_gc
-    sts   CPU_CCP, r16                /* open CCP window                      */
     ldi   r16, NVMCTRL_CMD_PAGEERASE_gc
-    sts   NVMCTRL_CTRLA, r16         /* issue PAGEERASE within window        */
+    ldi   r17, CCP_SPM_gc
+    sts   CPU_CCP, r17                /* open CCP window                      */
+    sts   NVMCTRL_CTRLA, r16          /* next instruction: issue PAGEERASE    */
     sei
 
     rcall nvm_wait
@@ -209,24 +211,24 @@ nvm_erase_page:
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * nvm_chip_erase — erase all flash outside the BOOTEND-protected region
+ * nvm_chip_erase — issue the NVMCTRL CHIPERASE command
  *
  * Entry:  none
  * Exit:   none
  * Clobbers: R16
  *
- * WARNING: This erases all application flash (pages above the BOOTEND
- * boundary). Only the boot section (if BOOTEND != 0x00) is preserved.
- * Use with extreme care.
+ * WARNING: Microchip AN2634 warns against using CHIPERASE during
+ * self-programming because it erases the Flash array. Do not use this in a
+ * recoverable bootloader design.
  * ═══════════════════════════════════════════════════════════════════════════ */
 .global nvm_chip_erase
 nvm_chip_erase:
     rcall nvm_wait
 
     cli
-    ldi   r16, CCP_SPM_gc
-    sts   CPU_CCP, r16
     ldi   r16, NVMCTRL_CMD_CHIPERASE_gc
+    ldi   r17, CCP_SPM_gc
+    sts   CPU_CCP, r17
     sts   NVMCTRL_CTRLA, r16
     sei
 

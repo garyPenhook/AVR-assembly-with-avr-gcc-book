@@ -10,10 +10,10 @@
  *
  * Main loop:  does nothing (CPU could sleep here to save power).
  *
- * Default clock: 20 MHz / 6 = 3.333 MHz
+ * Default clock: 20 MHz / 6 = 3.333 MHz on factory-default ATtiny3217
  *
  * Build:
- *   avr-gcc -mmcu=attiny3217 -c -o interrupts.o interrupts.S
+ *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -c -o interrupts.o interrupts.S
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o interrupts.elf interrupts.o
  *   avr-objdump -d interrupts.elf
  *   avr-objcopy -O ihex interrupts.elf interrupts.hex
@@ -28,7 +28,7 @@
 /* ── Interrupt sense configuration ───────────────────────────────────────── */
 /* PORT_ISC_FALLING_gc = 0x03: interrupt on falling edge (press = high→low).  */
 /* PORT_PULLUPEN_bm    = 0x08: enable internal pull-up.                        */
-/* Combined = 0x08 | 0x03 = 0x0B.  Use literal: avr-as cannot | enum values. */
+/* Combined = 0x08 | 0x03 = 0x0B. */
 .equ BTN_CTRL,  0x0B        /* PORT_PULLUPEN_bm | PORT_ISC_FALLING_gc         */
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -108,7 +108,7 @@ __vectors:
 
 /* ══════════════════════════════════════════════════════════════════════════
  * isr_default — catch-all for unhandled interrupts.
- * RETI re-enables interrupts and returns to interrupted code.
+ * RETI completes the CPUINT interrupt return and resumes interrupted code.
  * If an unexpected interrupt fires, execution silently resumes.
  * (For debugging, replace RETI with a trap: rjmp .)
  * ══════════════════════════════════════════════════════════════════════════ */
@@ -127,15 +127,14 @@ isr_default:
  *   2. Toggle LED0 (PA3) via PORTA_OUTTGL.
  *   3. Clear PORTB interrupt flag for bit BTN_BIT (write-1-to-clear).
  *   4. Restore SREG + r16.
- *   5. RETI: return and re-enable interrupts.
+ *   5. RETI: return through CPUINT and resume main code.
  *
  * Stack usage: 2 bytes (return address) + 2 bytes (PUSH r16 × 2) = 4 bytes.
  *
  * Why save SREG?
- *   Any arithmetic or logical instruction modifies SREG flags.  If the ISR
- *   uses any such instruction (including SBIW, STS, LDI) and the interrupted
- *   code was in the middle of a compare-branch sequence, the flags it relied
- *   on will be overwritten.  Always save and restore SREG in every ISR.
+ *   Arithmetic and logic instructions modify SREG flags.  If an ISR uses one
+ *   of them while interrupted code is between a compare and branch, the flags
+ *   it relied on may be overwritten.  Save and restore SREG in every ISR.
  * ══════════════════════════════════════════════════════════════════════════ */
 portb_isr:
     /* ── Prologue: save state ────────────────────────────────────────── */
@@ -150,15 +149,14 @@ portb_isr:
     /* ── Clear interrupt flag ───────────────────────────────────────── */
     /* PORTB_INTFLAGS (memory 0x0429) uses write-1-to-clear.             */
     /* VPORTB_INTFLAGS at I/O 0x07 is an alias — SBI writes 1 to bit 2, */
-    /* which clears the flag.  If not cleared, RETI re-fires instantly.  */
+    /* which clears the flag.  If not cleared, it remains pending.       */
     sbi   VPORTB_INTFLAGS, BTN_BIT  /* clear PORTB pin 2 interrupt flag      */
 
     /* ── Epilogue: restore state ─────────────────────────────────────── */
     pop   r16                  /* pop saved SREG value                        */
-    out   SREG, r16            /* restore SREG — interrupt flag (I) stays 0   */
-                               /* until RETI re-enables it                    */
+    out   SREG, r16            /* restore SREG exactly                         */
     pop   r16                  /* restore r16                                 */
-    reti                       /* pop PC, set I=1, resume main code           */
+    reti                       /* pop PC, exit CPUINT ISR state, resume main  */
 
 /* ══════════════════════════════════════════════════════════════════════════
  * main
@@ -167,10 +165,10 @@ portb_isr:
 
 main:
     /* Initialize stack pointer */
-    ldi   r16, lo8(RAMEND)
-    out   SPL, r16
     ldi   r16, hi8(RAMEND)
     out   SPH, r16
+    ldi   r16, lo8(RAMEND)
+    out   SPL, r16
 
     /* Configure PA3 as output (LED off) */
     sbi   VPORTA_DIR, LED_BIT  /* PA3 = output                               */
@@ -188,9 +186,8 @@ main:
 
     /* Enable global interrupts
      *
-     * SEI sets the I bit in SREG.  After this instruction, any pending
-     * interrupt may fire before the next instruction.  Ensure all
-     * hardware is configured before SEI.
+     * SEI sets the I bit in SREG.  The instruction after SEI executes before
+     * any pending interrupt is serviced.  Configure hardware before SEI.
      */
     sei
 

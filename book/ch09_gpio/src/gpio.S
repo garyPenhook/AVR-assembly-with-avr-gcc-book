@@ -5,10 +5,10 @@
  *   LED0   PA3, active-low (drive 0 = on)
  *   Button PB2, active-low (pressed = 0); internal pull-up enabled
  *
- * Default clock: 20 MHz / 6 = 3.333 MHz (OSCCFG fuse default on tinyAVR 1)
+ * Default clock: 20 MHz / 6 = 3.333 MHz on factory-default ATtiny3217
  *
  * Build:
- *   avr-gcc -mmcu=attiny3217 -c -o gpio.o gpio.S   (avr-gcc runs cpp on .S)
+ *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -c -o gpio.o gpio.S
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o gpio.elf gpio.o
  *   avr-objdump -d gpio.elf
  *   avr-objcopy -O ihex gpio.elf gpio.hex
@@ -39,16 +39,16 @@ __vectors:
 
 main:
     /* Initialize stack pointer to top of SRAM */
-    ldi  r16, lo8(RAMEND)
-    out  SPL, r16
     ldi  r16, hi8(RAMEND)
     out  SPH, r16
+    ldi  r16, lo8(RAMEND)
+    out  SPL, r16
 
     /* ── Configure PA3 as output (LED off initially) ─────────────────────
      *
      * VPORTA_DIR lives at I/O address 0x00.
-     * SBI: atomically sets one bit, 2 cycles — no read-modify-write race.
-     * CBI: atomically clears one bit, 2 cycles.
+     * SBI: atomically sets one bit, 1 cycle on ATtiny3217.
+     * CBI: atomically clears one bit, 1 cycle on ATtiny3217.
      *
      * Equivalent using full PORT registers (atomic set/clear):
      *   ldi r16, (1 << LED_BIT)
@@ -83,18 +83,19 @@ main:
     rjmp .Lpressed              /* PB2 = 0: button down                       */
     rjmp .Lloop
 
-    /* ── Button pressed: toggle LED ──────────────────────────────────────
+    /* ── Button pressed: debounce, confirm, then toggle LED ─────────────
      *
      * PORTA_OUTTGL (0x0407): write 1 to a bit to atomically toggle that
      * output bit.  Safer than read-VPORTA_OUT / XOR / write-VPORTA_OUT
      * because no interrupt can observe a partial state.
      */
 .Lpressed:
+    rcall delay_20ms
+    sbic VPORTB_IN, BTN_BIT    /* skip if PB2 is still low (pressed)         */
+    rjmp .Lloop                 /* bounce/glitch: ignore                      */
+
     ldi  r16, (1 << LED_BIT)
     sts  PORTA_OUTTGL, r16     /* toggle PA3                                  */
-
-    /* ── Debounce after press: wait then poll for release ────────────── */
-    rcall delay_20ms
 
 .Lwait_release:
     sbis VPORTB_IN, BTN_BIT    /* skip if PB2 = 1 (released)                 */
@@ -108,9 +109,9 @@ main:
  * Busy-wait ~20 ms at 3.333 MHz (default ATtiny3217 clock).
  * Tune DEBOUNCE_COUNT for other frequencies.
  *
- * Uses r26:r27 (XL:XH) — call-clobbered per GCC AVR ABI, no save needed.
- * No flags modified (SBIW does set flags, but this is a leaf routine and
- * the caller does not rely on flags across the RCALL).
+ * Uses r26:r27 (XL:XH). The caller in this example does not keep live values
+ * there across the RCALL.
+ * SBIW updates flags; the caller does not rely on flags across the RCALL.
  *
  * Cycle count: RCALL(3) + LDI×2(2) + N×(SBIW(2)+BRNE(2)) + BRNE_exit(1)
  *              + RET(4) ≈ 4 × DEBOUNCE_COUNT cycles.
