@@ -5,19 +5,12 @@ language. There is no hidden runtime to explain what happened. The evidence is
 the program counter, the registers, the status flags, SRAM, I/O registers, the
 stack pointer, and the instruction stream in flash.
 
-This chapter shows how to use GDB as an assembly debugger. The focus is
-hand-written AVR assembly for the ATtiny3217, but the habits carry over to
-other AVR devices: build an ELF with symbols, keep labels at meaningful
-locations, stop at instruction boundaries, inspect the CPU state, and prove
-what changed after each instruction.
-
-GDB is not the only debugger in the Microchip world. MPLAB X IDE and Microchip
-Studio provide the supported graphical debug front ends for Microchip hardware.
-Microchip also provides the Microchip Debugger, MDB, as a command-line
-interface to MPLAB X debug tools. MDB is modeled after GDB and uses similar
-debugging ideas, but it is a Microchip tool rather than GNU GDB itself. This
-chapter uses GDB terminology because it is precise, scriptable, and matches the
-local GDB manual included with this book.
+This chapter shows how to debug the assembly style used in this book: GNU AVR
+assembly syntax in `.S` files, preprocessed through `avr-gcc` and assembled by
+`avr-as`. The target board is the ATtiny3217 Curiosity Nano, using its on-board
+debugger over UPDI. The core habit is simple: build an ELF with symbols, keep
+labels at meaningful locations, stop at instruction boundaries, inspect the CPU
+state, and prove what changed after each instruction.
 
 ---
 
@@ -150,10 +143,8 @@ Use the AVR-targeted GDB when your toolchain provides it:
 avr-gdb gdb_demo.elf
 ```
 
-Some systems package the debugger as `avr-gdb`; others provide a multi-target
-GDB that can select AVR with `set architecture`. For day-to-day AVR work,
-`avr-gdb` is the clearer command because it loads the AVR register set and
-disassembler directly.
+This chapter assumes `avr-gdb`. It matches the rest of the AVR GNU toolchain and
+loads the AVR register set and disassembler directly.
 
 Inside GDB, confirm the file:
 
@@ -188,9 +179,14 @@ after every stop.
 
 ---
 
-## Three Debugging Targets
+## Debugging Targets Used Here
 
-There are three different ways to use GDB-like debugging with this material.
+This book assumes one assembly syntax and one hardware debug board:
+
+- source files use GNU AVR assembly accepted by `avr-as`
+- the build driver is `avr-gcc`
+- the debug image is the linked ELF file
+- the hardware target is the ATtiny3217 Curiosity Nano and its on-board debugger
 
 ### 1. Static ELF Inspection
 
@@ -214,63 +210,7 @@ wrong section, unexpected instruction encoding, missing symbol, incorrect
 vector placement, a branch target in the wrong place, or data linked into flash
 when it was meant for SRAM.
 
-### 2. Simulator or Emulated Target
-
-Some AVR GDB builds support a simulator target. If yours does, the basic flow is:
-
-```gdb
-(gdb) target sim
-(gdb) load
-(gdb) break main
-(gdb) run
-```
-
-Simulator support is toolchain-dependent. If `target sim` is unavailable in
-your installed debugger, use static inspection, MPLAB X simulator, MDB, or real
-hardware debugging instead.
-
-Microchip documents the MPLAB X simulator as a discrete-event simulator for
-Microchip MCU families, including AVR devices, with features such as object-code
-execution, stimulus injection, trace, code coverage, and data extraction. Not
-every device and peripheral is modeled, so simulator results must be checked
-against the supported-device and supported-peripheral documents for the tool
-version you use.
-
-### 3. Hardware Debugging Through a Remote Target
-
-GDB connects to embedded hardware through a remote protocol endpoint:
-
-```gdb
-(gdb) target remote :1234
-```
-
-The exact program that provides that TCP or serial endpoint depends on the debug
-probe and toolchain. Once connected, the common flow is:
-
-```gdb
-(gdb) file gdb_demo.elf
-(gdb) target remote :1234
-(gdb) load
-(gdb) break main
-(gdb) continue
-```
-
-Many embedded remote targets also accept monitor commands:
-
-```gdb
-(gdb) monitor reset halt
-```
-
-Monitor commands are not standardized by GDB; they are interpreted by the remote
-server. Check the debug-server documentation before assuming a command exists.
-
-For Microchip hardware, the supported path is usually MPLAB X IDE, Microchip
-Studio, or MDB. MDB is especially relevant when you want command-line debugging
-or scripted tests using Microchip debug tools.
-
----
-
-## Microchip Debug Paths for ATtiny3217
+### 2. ATtiny3217 Curiosity Nano Hardware
 
 The ATtiny3217 uses UPDI, the Unified Program and Debug Interface. Microchip
 describes UPDI as the single-pin programming and debugging interface for this
@@ -278,58 +218,33 @@ device family. The ATtiny3217 product documentation lists the device as an
 8-bit AVR running up to 20 MHz, with up to 32 KB flash, 2 KB SRAM, 256 bytes of
 EEPROM, and a single-pin UPDI programming/debug interface.
 
-On the ATtiny3217 Curiosity Nano, Microchip documents an on-board debugger that
-programs and debugs the ATtiny3217 using UPDI. The on-board debugger also
-provides a virtual serial port over UART and debug GPIO support. MPLAB X IDE and
-Microchip Studio can be used as front ends for that debugger.
+The ATtiny3217 Curiosity Nano hardware guide documents the board's on-board
+debugger as the programming and debugging path for the ATtiny3217 using UPDI.
+That same on-board debugger also provides a virtual serial port over UART and
+debug GPIO. Those are the observation paths assumed in the rest of this book.
 
-On the ATtiny3217 Xplained Pro, Microchip documents an Embedded Debugger, EDBG,
-that programs and debugs the ATtiny3217 using UPDI. The board also exposes a
-10-pin 50-mil UPDI debug connector. In that connector, PA0 is the UPDI/RESET
-connection, VCC target is present, and GND is present. Microchip notes that PA0
-is configured as UPDI by default and that changing PA0 into RESET or GPIO can
-disable further programming and debugging through the embedded debugger.
+Debugger-to-target connections on the ATtiny3217 Curiosity Nano:
 
-General UPDI hardware facts from Microchip documentation:
+| ATtiny3217 pin | Debugger function | Book use |
+|----------------|-------------------|----------|
+| `PA0` | `DBG0`, UPDI | program/debug lifeline |
+| `PB2` | CDC RX, ATtiny3217 USART0 TX | serial output to host |
+| `PB3` | CDC TX, ATtiny3217 USART0 RX | serial input from host |
+| `PA3` | debug GPIO1 | LED0 and timing/debug marks |
+| `PB7` | debug GPIO0 | optional timing/debug marks |
 
-- UPDI is a Microchip proprietary interface for external programming and
-  on-chip debugging.
-- It is a single-wire, bidirectional, half-duplex asynchronous interface.
-- It succeeded the older PDI two-wire interface used by AVR XMEGA devices.
-- Target voltage and ground are still required even though the data interface
-  itself is one wire.
-- Some fuse states require high-voltage UPDI recovery, so board designs should
-  not attach fragile circuitry directly to the UPDI line without considering
-  recovery pulses and isolation.
+Microchip documents that these debugger connections are tri-stated when the
+debugger is not actively using the interface. The board also exposes the signals
+on the edge connector, but the default assumption here is the unmodified
+Curiosity Nano board with the on-board debugger still connected.
+
+Do not cut the debugger straps for the examples in this book. Microchip notes
+that disconnecting those straps disables programming, debugging, virtual serial
+port, and data streaming for the ATtiny3217 mounted on the board.
 
 For this book, the practical rule is simple: treat PA0/UPDI as a debug lifeline.
 Do not use it as an ordinary GPIO pin in examples unless you also explain how
 the board can be recovered.
-
----
-
-## MDB: Microchip's GDB-Like Command Line
-
-Microchip Debugger, MDB, is installed with MPLAB X IDE. Microchip describes it
-as a command-line debugger interface to Microchip hardware and software
-development tools. It can interact with supported Microchip probes, embedded
-debuggers, the MPLAB simulator, and scripted debug sessions.
-
-MDB is not a drop-in replacement for `avr-gdb`, but the mental model is close:
-
-| Task | GDB idea | MDB idea |
-|------|----------|----------|
-| Select program | Load an ELF | Load project or image context |
-| Select target | `target remote` or simulator | Select Microchip tool/simulator |
-| Start execution | `run` or `continue` | Run/continue command |
-| Stop execution | breakpoint/watchpoint | breakpoint/watchpoint |
-| Inspect state | registers/memory/disassembly | registers/memory/disassembly |
-| Automate | `.gdbinit`, command files | MDB scripts |
-
-Use GDB when your workflow has a GDB-compatible target. Use MDB when you want
-Microchip's command-line access to MPLAB X-supported debug hardware. Use the
-IDE when you need the most direct vendor-supported path for configuring a probe,
-fuses, memories, and device-specific debug features.
 
 ---
 
@@ -588,10 +503,9 @@ Practical rules:
   `unexpected_interrupt: rjmp unexpected_interrupt`.
 - Remove stale breakpoints when changing code layout.
 
-Microchip's MPLAB X debugging documentation includes specific topics for
-breakpoints, software breakpoints, debug disassembly, memory windows, simulator
-debugging, and device-specific debug resources. Use those documents when the
-behavior depends on a particular Microchip probe or device.
+On the Curiosity Nano, treat breakpoints as a scarce debug resource and keep
+your assembly easy to inspect statically with `avr-objdump` even when the
+hardware session is not attached.
 
 ---
 
@@ -605,8 +519,7 @@ Watchpoints stop when memory changes:
 
 On embedded targets, watchpoint support depends on the CPU and debug hardware.
 If a watchpoint is implemented in hardware, there may only be a small number
-available. If it is implemented in software, it may slow execution heavily or be
-unavailable on a remote target.
+available. If it is implemented in software, it may slow execution heavily.
 
 When watchpoints are limited, instrument the assembly instead:
 
@@ -812,21 +725,10 @@ info files
 disassemble /r main
 ```
 
-If your GDB has a simulator:
-
-```gdb
-target sim
-load
-run
-```
-
-If you are connected to a hardware remote target:
-
-```gdb
-target remote :1234
-load
-continue
-```
+For hardware confirmation, program the same ELF-derived HEX image to the
+ATtiny3217 Curiosity Nano through its on-board debugger, then use the board's
+debugger-backed observation paths: breakpoints, register/memory views, the CDC
+serial port on USART0, and debug GPIO pins.
 
 At `sum_loop`, step one instruction at a time:
 
@@ -914,7 +816,7 @@ avr-gdb gdb_demo.elf
 | SRAM variable unchanged | store not reached or wrong address | break before `STS`, inspect pointer/address |
 | `LPM` reads unexpected value | flash table address or address-space mapping | `avr-nm`, `avr-objdump -s`, inspect `Z` |
 | ISR never runs | interrupt enable chain | peripheral flag, peripheral enable bit, global I bit, vector |
-| Debug probe cannot connect | UPDI wiring/fuse/power | target VCC, GND, PA0/UPDI path, fuse state |
+| Curiosity Nano debugger cannot connect | UPDI wiring/fuse/power | target VCC, GND, PA0/UPDI path, fuse state |
 | Debug works once then stops | UPDI pin reused or fuse changed | check PA0 configuration and fuse writes |
 
 The point of the table is not to replace thinking. It gives you the first piece
@@ -947,21 +849,16 @@ visible.
 
 Facts in this chapter are based on:
 
-- Microchip ATtiny3217 product documentation for device memory sizes, UPDI, and
-  supported development tools.
+- Microchip ATtiny3217 product documentation for device memory sizes and UPDI.
 - Microchip ATtiny3217 Curiosity Nano Hardware User Guide sections describing
   the on-board debugger, UPDI programming/debugging, virtual serial port, and
-  debug GPIO.
-- Microchip ATtiny3217 Xplained Pro documentation for the UPDI connector and
-  PA0/UPDI default behavior.
-- Microchip Power Debugger documentation for UPDI as a single-wire,
-  bidirectional, half-duplex interface for external programming and on-chip
-  debugging.
-- Microchip MPLAB X debugging documentation for breakpoints, debug disassembly,
-  memory inspection, simulator, and UPDI/debugWIRE topics.
-- Microchip Debugger, MDB, documentation for the command-line debugger role,
-  MPLAB X installation path, scripting purpose, and GDB-like command model.
-- The local GDB 17.2 manual for `target remote`, `stepi`, `nexti`, `x/i`,
-  `display/i $pc`, `info registers`, `set architecture`, and `hook-stop`.
+  debug GPIO, including PA0/UPDI, PB2/PB3 CDC UART, PA3 debug GPIO1, and PB7
+  debug GPIO0 connections.
+- Microchip ATtiny3217 Curiosity Nano Hardware User Guide sections describing
+  debugger strap disconnection and the warning that cutting the straps disables
+  programming, debugging, virtual serial port, and data streaming for the
+  on-board ATtiny3217.
+- The local GDB 17.2 manual for `stepi`, `nexti`, `x/i`, `display/i $pc`,
+  `info registers`, and `hook-stop`.
 - The local Red Hat GDB tutorial PDF for practical startup-script behavior,
   `--nx`, `help`, `apropos`, and basic debug-session setup.
