@@ -719,11 +719,13 @@ ADC0_COMMAND    0x0608     Write bit 0 (STCONV) to start conversion
 ADC0_EVCTRL     0x0609     Event trigger enable
 ADC0_INTCTRL    0x060A     RESRDY(0) and WCMP(1) interrupt enables
 ADC0_INTFLAGS   0x060B     Interrupt flags (W1C)
-ADC0_RESL       0x060C     Result low byte
-ADC0_RESH       0x060D     Result high byte
-ADC0_WINLT      0x060E     Window comparator low threshold
-ADC0_WINHT      0x0610     Window comparator high threshold
-ADC0_CALIB      0x0612     Calibration
+ADC0_DBGCTRL    0x060C     Debug run control
+ADC0_TEMP       0x060D     Temporary register
+ADC0_RESL       0x0610     Result low byte
+ADC0_RESH       0x0611     Result high byte
+ADC0_WINLT      0x0612     Window comparator low threshold
+ADC0_WINHT      0x0614     Window comparator high threshold
+ADC0_CALIB      0x0616     Calibration
 ```
 
 ### CTRLA Bits
@@ -782,11 +784,11 @@ MUXPOS   Channel
   0x09   AIN9 (PB4)
   0x0A   AIN10 (PB1)
   0x0B   AIN11 (PB0)
-  0x1B   DACREF0
-  0x1C   TEMPSENSE  (internal temperature sensor)
-  0x1D   GND
-  0x1E   VDDIO2/10
-  0x1F   INTREF     (internal reference voltage)
+  0x1B   Reserved for ADC0 / PTC
+  0x1C   DAC0
+  0x1D   INTREF     (internal reference voltage)
+  0x1E   TEMPSENSE  (internal temperature sensor)
+  0x1F   GND
 ```
 
 ### Internal Reference Voltage
@@ -801,7 +803,7 @@ VREF_CTRLB       0x00A1     ADC0 reference force enable
 ```
 
 ```
-VREF_CTRLA bits 2:0 (ADC0REFSEL):
+VREF_CTRLA bits 6:4 (ADC0REFSEL):
   0x0   0.55V
   0x1   1.1V
   0x2   2.5V

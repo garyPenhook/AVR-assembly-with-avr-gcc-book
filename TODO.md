@@ -40,6 +40,20 @@
 - Chapter 17: fixed-point formats, rounding, saturation, BCD, calibration, and control math
 - Chapter 18: scheduler timing, phase math, and deterministic real-time calculations
 - Chapter 19: CORDIC, vector math, trig, magnitude, and coordinate transforms
+- Chapter 20: ADC / analog input, references, sampling, polling, interrupts, and filtering
+
+## Missing Subject Matter To Add Later
+
+- ADC / analog input: sampling, references, prescalers, channel selection, result handling, calibration, filtering, and ISR vs polling. Started in Chapter 20.
+- EEPROM / nonvolatile user data: wear limits, update patterns, checksums, parameter blocks, and safe write workflows.
+- Clock system and power: CLKCTRL, prescalers, oscillator choices, sleep modes, wake sources, watchdog, brown-out, and low-power design.
+- Fuses and device configuration: read/modify/write workflow, recovery risks, BOOTEND, clock-related fuses, and UPDI-safe habits.
+- UPDI / programming workflows: Curiosity Nano, serial UPDI, pymcuprog, avrdude, connection failures, and troubleshooting.
+- Practical build and linker workflow: multi-file assembly projects, map files, section placement, symbol exchange, and reproducible builds.
+- Testing and simulation: simavr or equivalent workflows, unit-style tests for assembly routines, and regression checks for examples.
+- C and assembly integration: callable assembly functions, inline asm constraints, ABI examples, structs, pointers, clobbers, and linker symbols.
+- Defensive firmware: watchdog recovery, fault counters, CRC/version metadata, boot failure paths, and safe peripheral initialization.
+- Advanced peripherals: RTC/PIT, event system, analog comparator, DAC, configurable custom logic, and deeper PWM patterns.
 
 ## Missing Math Topics To Add Later
 

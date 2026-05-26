@@ -25,6 +25,7 @@ CHAPTERS := \
 	book/ch17_bitmath/ch17.md \
 	book/ch18_realtime/ch18.md \
 	book/ch19_cordic/ch19.md \
+	book/ch20_adc/ch20.md \
 	book/appendices/appendix_a_registers.md \
 	book/appendices/appendix_b_instruction_set.md \
 	book/appendices/appendix_c_gas_directives.md \
@@ -48,7 +49,7 @@ PANDOC_FLAGS := \
 	-V sansfont="DejaVu Sans" \
 	-V monofont="DejaVu Sans Mono" \
 	-V title="AVR Assembly Programming" \
-	-V author="Gary"
+	-V author="Dazed\\_N\\_Confused"
 
 .PHONY: pdf clean-pdf
 
