@@ -15,6 +15,307 @@ Columns: **Opcode** — mnemonic and operands; **Operation** — what it does;
 
 ---
 
+## How to Read the AVR Instruction Set Manual
+
+This appendix is a quick reference. The Microchip instruction set manual is the
+authoritative source. If you only use the summary table, you can write code.
+If you learn to read the manual pages directly, you can answer harder questions:
+
+- Why does this instruction only work on `r16–r31`?
+- Why is this branch 1 cycle sometimes and 2 cycles other times?
+- Why does `SBIS` skip differently from `BRNE`?
+- Why does `OUT` work here but `STS` is required there?
+- Why does an instruction update `Z` but not `C`?
+
+The manual is not hard once you know what each field is trying to tell you.
+The problem is that it reads like a hardware document, not a tutorial.
+
+### What One Instruction Page Contains
+
+Each instruction in the manual is usually presented in the same structure:
+
+- **Description / operation**: what value changes logically.
+- **Syntax**: the assembly form, such as `ADD Rd, Rr`.
+- **Operands**: legal ranges, such as `0 <= d <= 31`.
+- **Program Counter**: how `PC` changes after execution.
+- **Opcode**: the encoded bit pattern.
+- **Status Register (SREG) and Boolean Formula**: which flags change and why.
+- **Words / Cycles**: code size and execution time, often by AVR core family.
+
+When reading a page, do not read it top to bottom like prose. Read it in this
+order instead:
+
+1. **Syntax**: what form the instruction has.
+2. **Operands**: which registers or constants are legal.
+3. **Operation**: what value is computed.
+4. **SREG effects**: which later branches or compares it can support.
+5. **Words / Cycles**: whether it is a good fit for tight loops.
+6. **Opcode**: only when you want to understand encoding limits or disassembly.
+
+That order matches how you actually use the information while programming.
+
+### Start with Syntax, but Trust the Operand Limits
+
+Beginners often read `LDI Rd, K` as "load any register with any 8-bit
+constant". The syntax alone does not tell the whole story. The **Operands**
+field does:
+
+```text
+LDI Rd, K
+Operands: 16 <= d <= 31, 0 <= K <= 255
+```
+
+That means `ldi r0, 1` is impossible, not merely discouraged. The reason is in
+the opcode encoding: `LDI` only has four bits for the register number, so the
+encoded register is really `Rd - 16`.
+
+This pattern appears all over AVR:
+
+- `LDI`, `ANDI`, `ORI`, `SUBI`, `SBCI`, `CPI` only work on `r16–r31`.
+- `ADIW` and `SBIW` only work on specific register pairs.
+- `MOVW` only uses even-numbered register pairs.
+- `SBI`, `CBI`, `SBIC`, `SBIS` only work on low I/O addresses.
+
+If the syntax looks general but the operand range is narrow, believe the range.
+The encoding is the real reason.
+
+### Read "Words" Before "Cycles"
+
+AVR documentation uses **words**, not bytes, as the natural unit of program
+storage. One word is 16 bits, so:
+
+- **1 word** = 2 bytes
+- **2 words** = 4 bytes
+
+This matters because AVR instructions are either one word or two words. That
+affects all of these at once:
+
+- code size in flash
+- instruction fetch behaviour
+- skip-instruction timing
+- absolute vs relative addressing choices
+
+Examples:
+
+- `OUT` is one word; `STS` is two words.
+- `RJMP` is one word; `JMP` is two words.
+- `RCALL` is one word; `CALL` is two words.
+
+So when the manual says an instruction is "Words: 2", translate that
+immediately into "this costs 4 bytes and may also affect skip timing".
+
+### Relative Addresses Are Not Absolute Addresses
+
+AVR manuals use several similar-looking operand letters:
+
+- `K` often means an immediate constant.
+- `k` often means a relative code offset.
+- `q` means a small displacement from `Y` or `Z`.
+- `A` means a low I/O address.
+
+Case matters. `K` and `k` are not interchangeable.
+
+For branches and relative calls:
+
+- `RJMP k` means jump relative to the current `PC`
+- `RCALL k` means call relative to the current `PC`
+- `BRNE k` means branch a short relative distance if `Z = 0`
+
+The manual usually writes this as:
+
+```text
+PC <- PC + k + 1
+```
+
+That `+ 1` exists because the PC normally advances to the next instruction
+word before the relative offset is applied. The important practical result is:
+
+- `RJMP` and `RCALL` do not encode a full absolute address.
+- `BRxx` instructions have much shorter range than `RJMP`.
+- Disassemblers may show targets as labels, but the hardware stores offsets.
+
+### Read the SREG Section as "What Can I Test Next?"
+
+The **Status Register (SREG)** is not just bookkeeping. It determines what
+branches are meaningful after an instruction.
+
+The bits are:
+
+- `I`: global interrupt enable
+- `T`: transfer bit for `BST` / `BLD`
+- `H`: half-carry, mainly for nibble/BCD-style carries
+- `S`: sign bit, defined as `N xor V`
+- `V`: signed overflow
+- `N`: negative
+- `Z`: zero
+- `C`: carry / borrow
+
+When reading an instruction page, ask:
+
+- Does this instruction update flags at all?
+- Which flags does it update?
+- Are those flags enough for unsigned comparison, signed comparison, or both?
+
+Examples:
+
+- `ADD` updates `Z`, `C`, `N`, `V`, `S`, `H`, so it supports later arithmetic
+  decisions.
+- `INC` does **not** update `C`, so it is not a drop-in replacement for
+  `ADD Rd, 1` if carry matters.
+- `TST` is really a flag-producing logical test, useful before `BREQ` or
+  `BRMI`.
+- `CP` changes flags without changing registers, which is why branches usually
+  follow it directly.
+
+The fastest way to understand a flag table is to map it to branch usage:
+
+- For **unsigned** comparisons, care mostly about `C` and `Z`.
+- For **signed** comparisons, care mostly about `S`, `V`, `N`, and `Z`.
+- For equality, care about `Z`.
+
+That is why AVR has both unsigned-style branches (`BRLO`, `BRSH`) and
+signed-style branches (`BRLT`, `BRGE`).
+
+### Do Not Panic About the Boolean Formulas
+
+The manual often gives flag equations in Boolean form. Those formulas are
+precise, but you usually do not need to derive them by hand while writing
+ordinary code.
+
+Use them in three situations:
+
+1. When a flag result surprises you.
+2. When writing multi-byte arithmetic where carry/borrow chains matter.
+3. When reviewing whether two instructions are truly interchangeable.
+
+For most programming, this simpler interpretation is enough:
+
+- `C`: carry out of bit 7 for addition, borrow behaviour for subtraction
+- `Z`: result was zero
+- `N`: result bit 7 is 1
+- `V`: signed overflow happened
+- `S`: signed comparison helper, `N xor V`
+- `H`: carry from bit 3 to bit 4
+
+If you are not doing decimal-style arithmetic or bit-exact arithmetic tricks,
+`H` is usually less important than `Z`, `C`, and `S`.
+
+### Cycles Are Family-Specific
+
+The instruction set manual often shows cycle counts across multiple AVR core
+families. This book targets the ATtiny3217, which is an **AVRxt** device, so
+the AVRxt column is the one that matters most here.
+
+Do not assume:
+
+- a timing number from an older ATmega necessarily matches AVRxt
+- all loads and stores cost the same on every AVR family
+- every manual example was written with your exact core in mind
+
+When timing matters, read the correct family column first, then read any note
+attached to it. Notes are where the manual hides the details that break naive
+assumptions.
+
+### Skip Instructions Need Extra Attention
+
+`CPSE`, `SBRC`, `SBRS`, `SBIC`, and `SBIS` do not branch. They **skip the next
+instruction** if the condition is true.
+
+That sounds simple, but the manual's word count matters here:
+
+- If the next instruction is 1 word, the skip jumps over 2 bytes.
+- If the next instruction is 2 words, the skip jumps over 4 bytes.
+- That is why skip instructions have multiple cycle counts.
+
+So this is safe:
+
+```asm
+sbrc r16, 0
+rjmp bit_was_set
+```
+
+But this behaves differently from a true branch because the skip is based on
+the size of the *next* instruction, not on a stored relative destination.
+
+When reading the manual, any cycle count like `1/2/3` or `2/3/4` should make
+you ask: "is this a skip instruction, and is the next instruction one or two
+words long?"
+
+### Learn the Address Spaces Separately
+
+AVR documentation is much easier once you stop treating "memory" as one thing.
+The manual switches among several address spaces:
+
+- **register file**: `r0–r31`
+- **I/O space**: low peripheral addresses used by `IN` / `OUT`
+- **data space**: SRAM and memory-mapped locations used by `LD` / `ST` / `LDS`
+  / `STS`
+- **program memory**: flash, read with `LPM`
+
+Many confusing instruction choices become obvious once you ask which space is
+being accessed.
+
+Example:
+
+- `OUT PORTA_DIR, r16` only works if that register is in low I/O space.
+- `STS PORTA_DIR, r16` works with a data-space address, but costs more.
+- `LPM` is for flash, not SRAM.
+
+If two instructions seem to do the same job, check whether they are really
+talking to different address spaces.
+
+### Aliases and Pseudo-Instructions Can Hide the Real Opcode
+
+Assembly source often uses friendly names that are not separate hardware
+instructions.
+
+Examples:
+
+- `CLR Rd` is assembled as `EOR Rd, Rd`.
+- `SER Rd` is assembled as `LDI Rd, 0xFF`.
+- `LSL Rd` is effectively `ADD Rd, Rd`.
+- named branches like `BREQ` and `BRNE` are readable aliases for specific
+  `BRBS` / `BRBC` conditions.
+
+That matters because the manual may document one spelling while the assembler
+accepts another. If something looks inconsistent, check whether you are dealing
+with:
+
+- a real opcode
+- an alias mnemonic
+- a pseudo-instruction expanded by the assembler
+
+### A Good Manual-Reading Workflow
+
+When you meet an unfamiliar instruction, use this checklist:
+
+1. Read the syntax and operand limits.
+2. Identify the address space involved: register, I/O, SRAM, or flash.
+3. Check whether it is 1 word or 2 words.
+4. Check which SREG flags it updates.
+5. Check whether the cycle count depends on branch taken/not taken, skip size,
+   or AVR core family.
+6. Check whether there is a shorter equivalent instruction for your case.
+
+That method is enough to decode most of the manual quickly.
+
+### What This Means for the Rest of the Book
+
+Use Chapter 4 to learn the common instruction patterns, then come back to this
+appendix when you need the full table. Use the Microchip manual when a question
+depends on one of these details:
+
+- exact flag behaviour
+- exact operand limits
+- instruction encoding constraints
+- family-specific cycle counts
+- special notes about program memory, skip timing, or core differences
+
+Once you start reading the manual this way, it stops looking like a wall of
+tables and starts looking like a set of answers to very specific questions.
+
+---
+
 ## Arithmetic and Logic
 
 ```
