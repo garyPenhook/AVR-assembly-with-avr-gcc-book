@@ -1,8 +1,9 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
-PDF_VERSION := v1.5
+PDF_VERSION := v1.6
 PDF_VERSIONED := $(PDF_DIR)/$(PDF_NAME)-$(PDF_VERSION).pdf
 PDF_LATEST := $(PDF_DIR)/$(PDF_NAME).pdf
+PDF_LOG := $(PDF_DIR)/build-$(PDF_VERSION).log
 
 CHAPTERS := \
 	book/ch01_intro/ch01.md \
@@ -63,4 +64,4 @@ $(PDF_DIR):
 	mkdir -p $@
 
 clean-pdf:
-	rm -f $(PDF_VERSIONED) $(PDF_LATEST)
+	rm -f $(PDF_VERSIONED) $(PDF_LATEST) $(PDF_LOG)
