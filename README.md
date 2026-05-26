@@ -7,6 +7,10 @@ timing, and build artifacts you can inspect.
 
 Author: Dazed_N_Confused
 
+Assistance note: ChatGPT was used for datasheet and application-note
+extraction, cross-checking, and typing help. Technical claims should still be
+checked against the cited Microchip documentation and local build output.
+
 ## What the Book Covers
 
 - AVR architecture: register file, SREG, stack, program counter, memory map
