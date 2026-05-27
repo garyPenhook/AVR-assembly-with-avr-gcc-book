@@ -1,9 +1,11 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
-PDF_VERSION := v1.8
+PDF_VERSION := v1.9
 PDF_VERSIONED := $(PDF_DIR)/$(PDF_NAME)-$(PDF_VERSION).pdf
 PDF_LATEST := $(PDF_DIR)/$(PDF_NAME).pdf
 PDF_LOG := $(PDF_DIR)/build-$(PDF_VERSION).log
+
+SHELL := /bin/bash
 
 CHAPTERS := \
 	book/ch01_intro/ch01.md \
@@ -17,6 +19,7 @@ CHAPTERS := \
 	book/ch08_subroutines/ch08.md \
 	book/ch09_gpio/ch09.md \
 	book/ch10_interrupts/ch10.md \
+	book/ch10a_power_clock/ch10a.md \
 	book/ch11_timer/ch11.md \
 	book/ch12_usart/ch12.md \
 	book/ch13_spi_twi/ch13.md \
@@ -36,16 +39,24 @@ CHAPTERS := \
 PANDOC_FLAGS := \
 	--from markdown+smart \
 	--toc \
+	--toc-depth=3 \
 	--number-sections \
 	--syntax-highlighting=tango \
 	--include-in-header=book/toc-format.tex \
+	--include-in-header=book/pdf-preamble.tex \
 	--pdf-engine=xelatex \
+	--pdf-engine-opt=-interaction=nonstopmode \
+	--pdf-engine-opt=-file-line-error \
+	--pdf-engine-opt=-halt-on-error \
 	-V documentclass=book \
+	-V classoption=oneside \
 	-V geometry:margin=1in \
+	-V geometry:paper=a4paper \
 	-V colorlinks=true \
 	-V linkcolor=blue \
 	-V urlcolor=blue \
 	-V toccolor=black \
+	-V hyperrefoptions=bookmarksopen=true,bookmarksopenlevel=1 \
 	-V mainfont="DejaVu Serif" \
 	-V sansfont="DejaVu Sans" \
 	-V monofont="DejaVu Sans Mono" \
@@ -57,8 +68,9 @@ PANDOC_FLAGS := \
 pdf: $(PDF_VERSIONED)
 	cp $(PDF_VERSIONED) $(PDF_LATEST)
 
-$(PDF_VERSIONED): $(CHAPTERS) book/toc-format.tex | $(PDF_DIR)
-	pandoc $(CHAPTERS) $(PANDOC_FLAGS) -o $@
+$(PDF_VERSIONED): $(CHAPTERS) book/toc-format.tex book/pdf-preamble.tex | $(PDF_DIR)
+	set -o pipefail; pandoc $(CHAPTERS) $(PANDOC_FLAGS) -o $@ 2>&1 | tee $(PDF_LOG)
+	-command -v pdfinfo >/dev/null 2>&1 && pdfinfo $@ >> $(PDF_LOG) 2>&1
 
 $(PDF_DIR):
 	mkdir -p $@

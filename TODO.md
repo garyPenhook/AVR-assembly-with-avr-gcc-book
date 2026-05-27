@@ -33,6 +33,7 @@
 - Chapter 5: bit-level load/store patterns, masks, field packing, and extraction
 - Chapter 6: unsigned and signed arithmetic, multi-byte math, and multiply support
 - Chapter 7: modular arithmetic, wraparound logic, and compare/branch math
+- Chapter 10a: clock system, sleep modes, PIT wakeups, and BOD/VLM overview
 - Chapter 11: timer math, prescalers, and PWM scaling
 - Chapter 12: baud-rate math and serial timing
 - Chapter 14: checksum and CRC routines, plus C/ASM math handoff
@@ -46,7 +47,7 @@
 
 - ADC / analog input: sampling, references, prescalers, channel selection, result handling, calibration, filtering, and ISR vs polling. Started in Chapter 20.
 - EEPROM / nonvolatile user data: wear limits, update patterns, checksums, parameter blocks, and safe write workflows.
-- Clock system and power: CLKCTRL, prescalers, oscillator choices, sleep modes, wake sources, watchdog, brown-out, and low-power design.
+- Watchdog and reset recovery: WDT setup, timeout choices, reset cause handling, and fault-counter policy.
 - Fuses and device configuration: read/modify/write workflow, recovery risks, BOOTEND, clock-related fuses, and UPDI-safe habits.
 - UPDI / programming workflows: Curiosity Nano, serial UPDI, pymcuprog, avrdude, connection failures, and troubleshooting.
 - Practical build and linker workflow: multi-file assembly projects, map files, section placement, symbol exchange, and reproducible builds.

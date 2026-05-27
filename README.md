@@ -18,7 +18,8 @@ checked against the cited Microchip documentation and local build output.
 - Instruction-set basics, operand restrictions, flags, branches, skips, and ABI
 - Load/store addressing, pointer registers, flash reads, and SRAM access
 - Multi-byte arithmetic, multiplication, division, fixed-point, BCD, and CORDIC
-- GPIO, interrupts, timers, USART, SPI, TWI/I2C, ADC, and boot/self-programming
+- GPIO, interrupts, clock/power control, timers, USART, SPI, TWI/I2C, ADC, and
+  boot/self-programming
 - GDB debugging, cycle counting, optimization, linker scripts, and flashing
 - Appendices for ATtiny3217 registers, instruction summaries, GAS directives,
   linker scripts, and avrdude workflows
@@ -48,14 +49,14 @@ make pdf
 Generated PDFs are written to:
 
 ```text
-book/output/pdf/avr-assembly-programming-v1.6.pdf
+book/output/pdf/avr-assembly-programming-v1.9.pdf
 book/output/pdf/avr-assembly-programming.pdf
 ```
 
 The build log is written to:
 
 ```text
-book/output/pdf/build-v1.6.log
+book/output/pdf/build-v1.9.log
 ```
 
 ## Source Layout
@@ -73,5 +74,5 @@ TODO.md                   roadmap and missing subject matter
 
 The book has a complete combined PDF build and includes chapters through ADC
 and analog input. Some subject areas are still planned in `TODO.md`, including
-EEPROM, clock/power, fuses, UPDI workflows, deeper C/assembly integration,
+EEPROM, fuses, UPDI workflows, deeper C/assembly integration,
 testing/simulation, and additional advanced peripherals.

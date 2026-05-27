@@ -1,0 +1,10 @@
+% Professional PDF tweaks for pandoc + XeLaTeX (book class).
+% Loaded after pandoc's default preamble via --include-in-header.
+
+\usepackage{microtype}
+% XeLaTeX does not support microtype font expansion (only protrusion).
+\microtypesetup{protrusion=true,expansion=false}
+
+% Slightly tighter lists without fighting pandoc's defaults too hard.
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=*}

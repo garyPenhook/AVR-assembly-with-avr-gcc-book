@@ -117,17 +117,17 @@ PDIV   Division factor (when PEN=1)
   0x3   /16
   0x4   /32
   0x5   /64
-  0x6   /6   ← factory default (20 MHz / 6 = 3.333 MHz)
-  0x7   /10
-  0x8   /12
-  0x9   /24
-  0xA   /48
+  0x8   /6   ← factory default (20 MHz / 6 = 3.333 MHz)
+  0x9   /10
+  0xA   /12
+  0xB   /24
+  0xC   /48
 ```
 
-Factory default: PDIV=0x6 (divide by 6), PEN=1 → **3.333 MHz** system clock.
+Factory default: PDIV=0x8 (divide by 6), PEN=1 → **3.333 MHz** system clock.
 
 To run at full **20 MHz**: write 0x00 to MCLKCTRLB (clears PEN) — requires CCP
-key 0xD8 first. To run at **10 MHz**: write PEN=1, PDIV=0x1 (divide by 2).
+key 0xD8 first. To run at **10 MHz**: write PEN=1, PDIV=0x0 (divide by 2).
 
 ### MCLKSTATUS — Status (read-only)
 
@@ -141,8 +141,93 @@ Bit name   Description
 ────────────────────────────────────────────────────────
 OSC20MS    1 = 20 MHz oscillator is stable and running
 OSC32KS    1 = 32 KHz oscillator is stable
-SOSC       1 = System oscillator is stable
+SOSC       1 = main clock source switch is in progress
 EXTS       1 = External clock source is active
+```
+
+---
+
+## SLPCTRL — Sleep Controller
+
+Base address: 0x0050.
+
+```
+Register        Mem Addr   Description
+────────────────────────────────────────────────────────
+SLPCTRL_CTRLA   0x0050     Sleep mode select and enable
+```
+
+### CTRLA — Sleep Control
+
+```
+Bit:  7:3    2:1      0
+      —      SMODE    SEN
+```
+
+```
+SMODE   Sleep mode
+────────────────────────────────────
+  0x0   Idle
+  0x1   Standby
+  0x2   Power-down
+
+SEN     Sleep enable. Must be 1 before executing SLEEP.
+```
+
+---
+
+## BOD — Brown-Out Detector / Voltage Level Monitor
+
+Base address: 0x0080. Some `BOD_CTRLA` fields are loaded from fuses. The
+`SLEEP` field is CCP-protected when changed at run time.
+
+```
+Register       Mem Addr   Description
+────────────────────────────────────────────────────────────
+BOD_CTRLA      0x0080     BOD sample frequency and active/sleep modes
+BOD_CTRLB      0x0081     BOD threshold level (fuse-loaded)
+BOD_VLMCTRLA   0x0088     VLM threshold above BOD level
+BOD_INTCTRL    0x0089     VLM interrupt enable/configuration
+BOD_INTFLAGS   0x008A     VLM interrupt flag (W1C)
+BOD_STATUS     0x008B     VLM status
+```
+
+### BOD_CTRLA
+
+```
+Bit:  7:5    4          3:2       1:0
+      —      SAMPFREQ   ACTIVE    SLEEP
+```
+
+```
+SAMPFREQ   0 = 1 kHz sampled mode, 1 = 125 Hz sampled mode
+
+ACTIVE     Active/Idle BOD mode (fuse-loaded, not changed by software)
+  0x0      Disabled
+  0x1      Continuous
+  0x2      Sampled
+  0x3      Continuous, wake-up halted until BOD is ready
+
+SLEEP      Standby/Power-down BOD mode (runtime writable through CCP)
+  0x0      Disabled
+  0x1      Continuous
+  0x2      Sampled
+```
+
+### VLM Registers
+
+```
+BOD_VLMCTRLA.VLMLVL
+  0x0   VLM threshold 5% above BOD level
+  0x1   VLM threshold 15% above BOD level
+  0x2   VLM threshold 25% above BOD level
+
+BOD_INTCTRL
+  bit 0        VLMIE: enable VLM interrupt
+  bits 2:1     VLMCFG: interrupt below, above, or crossing VLM threshold
+
+BOD_INTFLAGS
+  bit 0        VLMIF: write 1 to clear
 ```
 
 ---
