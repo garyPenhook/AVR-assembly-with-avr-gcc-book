@@ -17,6 +17,9 @@
 
 __vectors:
     jmp     main
+    .rept   30
+    jmp     isr_default
+    .endr
 
 .section .bss
 .global src_data
@@ -36,6 +39,10 @@ sin_sample:
     .zero   1
 
 .section .text
+
+isr_default:
+    reti
+
 .global main
 .type   main, @function
 

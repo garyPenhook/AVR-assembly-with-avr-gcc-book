@@ -8,6 +8,7 @@
 .equ LED_BIT,          3
 .equ ADC_PINCTRL,      0x04
 .equ ADC_REF_1V1,      0x10
+.equ ADC_REFEN,        0x02
 .equ ADC_PRESC_DIV16,  0x03
 .equ ADC_INITDLY32,    0x40
 .equ ADC_AIN4,         0x04
@@ -17,7 +18,10 @@
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    rjmp  main
+    jmp   main
+    .rept 30
+    jmp   default_isr
+    .endr
 
 .section .text
 .global main
@@ -34,6 +38,8 @@ main:
     sts   PORTA_PIN4CTRL, r16
     ldi   r16, ADC_REF_1V1
     sts   VREF_CTRLA, r16
+    ldi   r16, ADC_REFEN
+    sts   VREF_CTRLB, r16
     ldi   r16, ADC_PRESC_DIV16
     sts   ADC0_CTRLC, r16
     ldi   r16, ADC_INITDLY32
@@ -77,3 +83,6 @@ adc0_convert_window:
     sts   ADC0_INTFLAGS, r16
     mov   r16, r17
     ret
+
+default_isr:
+    reti

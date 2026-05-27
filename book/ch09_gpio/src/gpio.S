@@ -113,8 +113,9 @@ main:
  * there across the RCALL.
  * SBIW updates flags; the caller does not rely on flags across the RCALL.
  *
- * Cycle count: RCALL(3) + LDI×2(2) + N×(SBIW(2)+BRNE(2)) + BRNE_exit(1)
- *              + RET(4) ≈ 4 × DEBOUNCE_COUNT cycles.
+ * Cycle count from RCALL through RET on AVRxt:
+ *   RCALL(2) + LDI×2(2) + N×SBIW(2) + (N-1)×BRNE_taken(2)
+ *   + BRNE_exit(1) + RET(4) = 4×N + 7 cycles.
  */
 delay_20ms:
     ldi  r26, lo8(DEBOUNCE_COUNT)

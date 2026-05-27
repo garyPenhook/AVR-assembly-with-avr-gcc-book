@@ -19,7 +19,7 @@
  *
  * Flash write:
  *   NVMCTRL PAGEERASEWRITE command, CCP-protected.
- *   64-byte page size. The host helper coalesces input into page-sized
+ *   128-byte page size. The host helper coalesces input into page-sized
  *   records so each data record starts on a page boundary.
  *
  * Build (no BOOTEND protection):
@@ -54,7 +54,7 @@
 .equ NVMCTRL_CTRLA,               0x1000
 .equ NVMCTRL_STATUS,              0x1002
 .equ NVMCTRL_FBUSY_bp,            0
-.equ NVMCTRL_CMD_NOCMD_gc,        0x00
+.equ NVMCTRL_WRERROR_bm,          0x04
 .equ NVMCTRL_CMD_PAGEERASEWRITE_gc, 0x03
 
 /* ── CCP ─────────────────────────────────────────────────────────────────── */
@@ -91,7 +91,7 @@
 .equ LED0_PIN,  3                 /* PA3 = LED0, active-low                   */
 
 /* ── Flash geometry ─────────────────────────────────────────────────────── */
-.equ PAGE_SIZE, 64                /* ATtiny3217: 64 bytes per page            */
+.equ PAGE_SIZE, 128               /* ATtiny3217: 128 bytes per Flash page     */
 .equ FLASH_DATA_BASE_HI, 0x80     /* tinyAVR flash is mapped at data 0x8000   */
 
 /* ── CPU register aliases ──────────────────────────────────────────────── */
@@ -100,24 +100,26 @@
 .equ RAMEND, 0x3FFF
 
 /* ── SRAM page buffer ───────────────────────────────────────────────────── */
-/* 64-byte buffer used to accumulate data before a page write.               */
+/* 128-byte buffer used to accumulate data before a page write.              */
 /* Placed in .bss (zero-initialised by convention, but we overwrite anyway). */
 .section .bss
 .balign PAGE_SIZE
 page_buf:
-    .space PAGE_SIZE              /* 64 bytes of uninitialised SRAM           */
+    .space PAGE_SIZE              /* 128 bytes of uninitialised SRAM          */
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * Interrupt vector table
  * ATtiny3217 reset vector is at address 0x0000.
- * A single RJMP to selfupdate_main handles the reset vector.
- * All other vectors are unused — point them to a safe infinite loop.
+ * ATtiny3217 has 4-byte vector slots. Fill unused vectors with JMPs to a
+ * default RETI handler so program data never occupies vector-table addresses.
  * ═══════════════════════════════════════════════════════════════════════════ */
 .section .text
 .global __vectors
 __vectors:
-    rjmp  selfupdate_main         /* 0x0000: RESET → selfupdate entry         */
-    /* remaining vectors omitted — add as needed                              */
+    jmp   selfupdate_main         /* 0x0000: RESET -> selfupdate entry        */
+    .rept 30
+    jmp   isr_default
+    .endr
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
@@ -136,6 +138,9 @@ usart_init:
     /* USART0_CTRLC defaults to 8N1 after reset — no write needed            */
     ret
 
+isr_default:
+    reti
+
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * usart_tx — transmit byte in R16 (polling)
@@ -144,7 +149,7 @@ usart_init:
  * ═══════════════════════════════════════════════════════════════════════════ */
 usart_tx:
 .Lwait_dreif:
-    lds   r20, USART0_STATUS          /* 2 cy: read status                   */
+    lds   r20, USART0_STATUS          /* 3 cy: read status                   */
     sbrs  r20, USART_DREIF_bp         /* 1 cy: skip if DREIF = 1             */
     rjmp  .Lwait_dreif                /* 2 cy: not ready, loop               */
     sts   USART0_TXDATAL, r16         /* 2 cy: send byte                     */
@@ -158,10 +163,10 @@ usart_tx:
  * ═══════════════════════════════════════════════════════════════════════════ */
 usart_rx:
 .Lwait_rxcif:
-    lds   r20, USART0_STATUS          /* 2 cy: read status                   */
+    lds   r20, USART0_STATUS          /* 3 cy: read status                   */
     sbrs  r20, USART_RXCIF_bp         /* 1 cy: skip if RXCIF = 1             */
     rjmp  .Lwait_rxcif                /* 2 cy: no byte yet, loop             */
-    lds   r16, USART0_RXDATAL         /* 2 cy: read received byte            */
+    lds   r16, USART0_RXDATAL         /* 3 cy: read received byte            */
     ret
 
 
@@ -219,24 +224,24 @@ nvm_wait:
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * nvm_write_page — write the 64-byte SRAM page buffer to flash
+ * nvm_write_page — write the 128-byte SRAM page buffer to flash
  *
  * Entry:  Z = mapped flash data address of target page:
- *             0x8000 + flash byte address, 64-byte aligned
- *         X = SRAM address of 64-byte source (page_buf or equivalent)
- * Exit:   Z += 64 (advanced to next page)
- *         X += 64 (advanced past source data)
+ *             0x8000 + flash byte address, 128-byte aligned
+ *         X = SRAM address of 128-byte source (page_buf or equivalent)
+ * Exit:   Z += 128 (advanced to next page)
+ *         X += 128 (advanced past source data)
  * Clobbers: R16, R17, R18
  * ═══════════════════════════════════════════════════════════════════════════ */
 nvm_write_page:
     /* Step 1: wait for NVM ready */
     rcall nvm_wait
 
-    /* Step 2: clear stale errors */
-    ldi   r16, NVMCTRL_CMD_NOCMD_gc
-    sts   NVMCTRL_CTRLA, r16
+    /* Step 2: clear stale write errors (WRERROR is write-one-to-clear) */
+    ldi   r16, NVMCTRL_WRERROR_bm
+    sts   NVMCTRL_STATUS, r16
 
-    /* Step 3: fill page buffer from SRAM (64 plain ST writes) */
+    /* Step 3: fill page buffer from SRAM (128 plain ST writes) */
     ldi   r17, PAGE_SIZE
 .Lnvm_fill:
     ld    r18, X+                     /* load byte from SRAM buffer           */
@@ -245,7 +250,7 @@ nvm_write_page:
     brne  .Lnvm_fill
 
     /* Step 4: rewind Z to page base */
-    subi  ZL, lo8(PAGE_SIZE)          /* Z -= 64                              */
+    subi  ZL, lo8(PAGE_SIZE)          /* Z -= 128                             */
     sbci  ZH, hi8(PAGE_SIZE)
 
     /* Step 5: CCP-protected PAGEERASEWRITE */
@@ -260,7 +265,7 @@ nvm_write_page:
     rcall nvm_wait
 
     /* Advance Z to next page */
-    subi  ZL, lo8(-PAGE_SIZE)         /* Z += 64                              */
+    subi  ZL, lo8(-PAGE_SIZE)         /* Z += 128                             */
     sbci  ZH, hi8(-PAGE_SIZE)
     ret
 
@@ -382,12 +387,12 @@ selfupdate_main:
     dec   r18                         /* byte count--                        */
 
     /*
-     * Check if page buffer is full (X has advanced to a 64-byte boundary).
-     * X started at page_buf (aligned to 64 bytes). After 64 stores,
+     * Check if page buffer is full (X has advanced to a 128-byte boundary).
+     * X started at page_buf (aligned to 128 bytes). After 128 stores,
      * XL[5:0] = 0 again.
      */
     mov   r20, XL
-    andi  r20, (PAGE_SIZE - 1)        /* r20 = XL mod 64                     */
+    andi  r20, (PAGE_SIZE - 1)        /* r20 = XL mod 128                    */
     brne  .Lcheck_done                /* not at boundary: continue           */
 
     /*
@@ -398,7 +403,7 @@ selfupdate_main:
     movw  r20, XL                     /* r21:r20 = save X                    */
     ldi   XL, lo8(page_buf)           /* reset X to start of page buffer     */
     ldi   XH, hi8(page_buf)
-    rcall nvm_write_page              /* write page, Z advances by 64        */
+    rcall nvm_write_page              /* write page, Z advances by 128       */
     movw  XL, r20                     /* restore X (now past end of buffer)  */
     /* Reset X to page_buf for next record's accumulation */
     ldi   XL, lo8(page_buf)
@@ -447,9 +452,9 @@ selfupdate_main:
     /* Consume checksum byte of EOF record (not verified in this implementation) */
     rcall recv_hex_byte
 
-    /* Flush any partial page that didn't fill the 64-byte buffer.
+    /* Flush any partial page that didn't fill the 128-byte buffer.
      * Check if X has advanced past page_buf (i.e. we received some bytes
-     * for the current page but didn't cross the 64-byte boundary).
+     * for the current page but didn't cross the 128-byte boundary).
      * If XL != lo8(page_buf), there are bytes pending in the buffer.
      */
     ldi   r20, lo8(page_buf)

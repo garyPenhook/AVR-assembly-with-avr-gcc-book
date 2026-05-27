@@ -1,6 +1,6 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
-PDF_VERSION := v1.6
+PDF_VERSION := v1.8
 PDF_VERSIONED := $(PDF_DIR)/$(PDF_NAME)-$(PDF_VERSION).pdf
 PDF_LATEST := $(PDF_DIR)/$(PDF_NAME).pdf
 PDF_LOG := $(PDF_DIR)/build-$(PDF_VERSION).log

@@ -7,12 +7,12 @@
  * This file provides two routines:
  *
  *   nvm_wait         — poll NVMCTRL_STATUS.FBUSY until the NVM is idle
- *   nvm_write_page   — write one 64-byte page from SRAM to flash
+ *   nvm_write_page   — write one 128-byte page from SRAM to flash
  *
  * Flash write sequence (AVRXMEGA3 / NVMCTRL):
  *   1. Wait until FBUSY = 0 (no operation in progress)
- *   2. Write NOCMD (0x00) to NVMCTRL_CTRLA (clear any stale error)
- *   3. Fill page buffer: 64 × ST Z+, Rn  (plain stores to flash address)
+ *   2. Write 1 to NVMCTRL_STATUS.WRERROR to clear any stale error
+ *   3. Fill page buffer: 128 × ST Z+, Rn  (plain stores to flash address)
  *   4. Rewind Z to page-start base address
  *   5. CLI — disable interrupts to protect the CCP window
  *   6. STS CPU_CCP, 0x9D     (CCP_SPM_gc key, opens 4-cycle window)
@@ -27,12 +27,12 @@
  *
  * Entry conditions for nvm_write_page:
  *   Z  (R31:R30) = mapped flash data address of target page
- *                  (0x8000 + flash byte address, 64-byte aligned)
- *   X  (R27:R26) = SRAM address of 64-byte source data buffer
+ *                  (0x8000 + flash byte address, 128-byte aligned)
+ *   X  (R27:R26) = SRAM address of 128-byte source data buffer
  *
  * Exit conditions:
- *   Z advanced by 64 (points to start of next page)
- *   X advanced by 64 (points past the last source byte)
+ *   Z advanced by 128 (points to start of next page)
+ *   X advanced by 128 (points past the last source byte)
  *   Flash page at entry-Z contains the new data
  *   Clobbers: R16, R17, R18
  *
@@ -57,9 +57,10 @@
 .equ NVMCTRL_FBUSY_bp,  0          /* Flash Busy bit position                */
 .equ NVMCTRL_EEBUSY_bp, 1          /* EEPROM Busy bit position               */
 .equ NVMCTRL_WRERROR_bp, 2         /* Write Error bit position               */
+.equ NVMCTRL_WRERROR_bm, 0x04      /* Write Error bit mask (write 1 to clear) */
 
 /* ── NVMCTRL commands (written to NVMCTRL_CTRLA) ───────────────────────── */
-.equ NVMCTRL_CMD_NOCMD_gc,          0x00  /* no operation / clear error      */
+.equ NVMCTRL_CMD_NOCMD_gc,          0x00  /* no operation                    */
 .equ NVMCTRL_CMD_PAGEWRITE_gc,      0x01  /* write page buffer (no erase)    */
 .equ NVMCTRL_CMD_PAGEERASE_gc,      0x02  /* erase one page                  */
 .equ NVMCTRL_CMD_PAGEERASEWRITE_gc, 0x03  /* erase + write (recommended)     */
@@ -74,7 +75,7 @@
 .equ CCP_IOREG_gc,  0xD8            /* key for protected I/O register writes  */
 
 /* ── Flash page size ────────────────────────────────────────────────────── */
-.equ PAGE_SIZE,     64              /* ATtiny3217: 64 bytes per flash page    */
+.equ PAGE_SIZE,     128             /* ATtiny3217: 128 bytes per flash page   */
 
 /* ═══════════════════════════════════════════════════════════════════════════
  * nvm_wait — spin until NVMCTRL_STATUS.FBUSY = 0
@@ -84,38 +85,38 @@
  * Clobbers: R16
  *
  * Timing per poll iteration:
- *   LDS  NVMCTRL_STATUS  — 2 cycles (extended I/O read)
+ *   LDS  NVMCTRL_STATUS  — 3 cycles (extended I/O read)
  *   SBRC R16, 0          — 1 cycle (not skipping, bit is set)
  *   RJMP nvm_wait        — 2 cycles (taken branch)
- *   ─────────────────────  5 cycles per iteration
+ *   ─────────────────────  6 cycles per iteration while busy
  *
  * A PAGEERASEWRITE takes ~2.5 ms at any clock frequency.
- * At 3.333 MHz, that is ~8333 cycles → ~1667 poll iterations.
+ * At 3.333 MHz, that is ~8333 cycles → ~1389 poll iterations.
  * ═══════════════════════════════════════════════════════════════════════════ */
 .global nvm_wait
 nvm_wait:
-    lds   r16, NVMCTRL_STATUS          /* 2 cy: read NVMCTRL status register */
+    lds   r16, NVMCTRL_STATUS          /* 3 cy: read NVMCTRL status register */
     sbrc  r16, NVMCTRL_FBUSY_bp        /* 1 cy: skip next if FBUSY = 0       */
     rjmp  nvm_wait                     /* 2 cy: still busy — loop            */
     ret                                /* 4 cy                                */
 
 
 /* ═══════════════════════════════════════════════════════════════════════════
- * nvm_write_page — write one 64-byte page from SRAM to flash
+ * nvm_write_page — write one 128-byte page from SRAM to flash
  *
  * Entry:
  *   Z (R31:R30) = mapped flash data address of target page
  *                 0x8000 + flash byte address
- *                 MUST be 64-byte aligned (bits 5:0 = 0)
- *   X (R27:R26) = SRAM address of 64-byte source buffer
+ *                 MUST be 128-byte aligned (bits 6:0 = 0)
+ *   X (R27:R26) = SRAM address of 128-byte source buffer
  *
  * Exit:
- *   Z = entry_Z + 64  (points to start of next page)
- *   X = entry_X + 64  (points past last byte copied)
+ *   Z = entry_Z + 128  (points to start of next page)
+ *   X = entry_X + 128  (points past last byte copied)
  *   Clobbers: R16, R17, R18
  *
  * Notes:
- *   - If Z is not 64-byte aligned, partial page corruption will occur.
+ *   - If Z is not 128-byte aligned, partial page corruption will occur.
  *   - Do not call from an ISR (uses CLI/SEI around the CCP sequence).
  *   - The caller may wish to CLI around the entire write for maximum safety.
  * ═══════════════════════════════════════════════════════════════════════════ */
@@ -125,30 +126,31 @@ nvm_write_page:
     /* ── Step 1: Wait for any previous NVM operation to finish ─────────── */
     rcall nvm_wait                     /* spin until FBUSY = 0               */
 
-    /* ── Step 2: Clear any stale error (NOCMD) ─────────────────────────── */
-    ldi   r16, NVMCTRL_CMD_NOCMD_gc   /* r16 = 0x00                          */
-    sts   NVMCTRL_CTRLA, r16          /* 2 cy: write NOCMD to command reg    */
+    /* ── Step 2: Clear any stale write error (W1C) ─────────────────────── */
+    ldi   r16, NVMCTRL_WRERROR_bm     /* r16 = 0x04                          */
+    sts   NVMCTRL_STATUS, r16         /* write 1 to clear WRERROR if set     */
 
-    /* ── Step 3: Fill the page buffer (64 bytes) ───────────────────────── */
+    /* ── Step 3: Fill the page buffer (128 bytes) ──────────────────────── */
     /*
-     * Each iteration: LD r18, X+ (2 cy) + ST Z+, r18 (2 cy)
+     * Each iteration: LD r18, X+ (2 cy) + ST Z+, r18 (2+ cy for NVM access)
      *                + DEC r17 (1 cy) + BRNE (2 cy taken / 1 cy last)
-     * Total fill: 64 × 7 − 1 (last brne not taken) = 447 cycles
+     * Total fill is device/NVM-timing dependent; ordinary SRAM ST timing
+     * does not apply to mapped Flash page-buffer writes.
      */
-    ldi   r17, PAGE_SIZE              /* loop counter = 64                   */
+    ldi   r17, PAGE_SIZE              /* loop counter = 128                  */
 .Lfill_loop:
     ld    r18, X+                     /* 2 cy: load byte from SRAM buffer    */
-    st    Z+,  r18                    /* 2 cy: write to flash page buffer    */
+    st    Z+,  r18                    /* write to flash page buffer          */
     dec   r17                         /* 1 cy: decrement loop counter        */
     brne  .Lfill_loop                 /* 2/1 cy: loop until counter = 0      */
 
     /* ── Step 4: Rewind Z to page start ────────────────────────────────── */
     /*
-     * After the fill loop, Z = entry_Z + 64.
-     * SBIW ZL, 64 subtracts 64 from the 16-bit Z register pair in 2 cycles.
+     * After the fill loop, Z = entry_Z + 128.
+     * SUBI/SBCI subtract 128 from the 16-bit Z register pair.
      * Z now points to the base address of the page we just filled.
      */
-    subi  ZL, lo8(PAGE_SIZE)          /* Z -= 64                             */
+    subi  ZL, lo8(PAGE_SIZE)          /* Z -= 128                            */
     sbci  ZH, hi8(PAGE_SIZE)
 
     /* ── Step 5–7: CCP-protected PAGEERASEWRITE command ────────────────── */
@@ -173,7 +175,7 @@ nvm_write_page:
     rcall nvm_wait                    /* spin until FBUSY = 0                */
 
     /* ── Advance Z to start of next page for caller convenience ────────── */
-    subi  ZL, lo8(-PAGE_SIZE)         /* Z += 64                             */
+    subi  ZL, lo8(-PAGE_SIZE)         /* Z += 128                            */
     sbci  ZH, hi8(-PAGE_SIZE)
 
     ret                               /* 4 cy: return to caller               */
@@ -185,7 +187,7 @@ nvm_write_page:
  * Entry:
  *   Z (R31:R30) = mapped flash data address of any byte within the target page
  *                 (0x8000 + flash byte address)
- *                 (the hardware ignores the low 6 bits — page-aligned auto.)
+ *                 (the hardware ignores the low 7 bits — page-aligned auto.)
  * Exit:
  *   Z unchanged
  *   Clobbers: R16
@@ -196,8 +198,8 @@ nvm_write_page:
 nvm_erase_page:
     rcall nvm_wait
 
-    ldi   r16, NVMCTRL_CMD_NOCMD_gc
-    sts   NVMCTRL_CTRLA, r16          /* clear any previous error             */
+    ldi   r16, NVMCTRL_WRERROR_bm
+    sts   NVMCTRL_STATUS, r16         /* clear any previous WRERROR           */
 
     cli
     ldi   r16, NVMCTRL_CMD_PAGEERASE_gc

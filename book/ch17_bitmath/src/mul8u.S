@@ -6,7 +6,7 @@
  *         R17 = multiplier   B
  * Exit:   R25:R24 = A × B (unsigned 16-bit)
  * Clobbers: R16, R17, R18, R20
- * Cycles: worst-case ~56
+ * Cycles: 71 + popcount(multiplier), including setup and RET (AVRxt)
  */
 
 #include <avr/io.h>

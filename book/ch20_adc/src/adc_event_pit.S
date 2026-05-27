@@ -8,18 +8,22 @@
 .equ LED_BIT,          3
 .equ ADC_PINCTRL,      0x04
 .equ ADC_REF_1V1,      0x10
+.equ ADC_REFEN,        0x02
 .equ ADC_PRESC_DIV16,  0x03
 .equ ADC_INITDLY32,    0x40
 .equ ADC_AIN4,         0x04
 .equ ADC_SAMPLEN8,     8
-.equ EVGEN_PIT_DIV1024, 0x04
+.equ EVGEN_PIT_DIV1024, 0x0D
 .equ EVUSER_ASYNCCH3,  0x06
-.equ PIT_DIV1024_EN,   ((4 << 3) | RTC_PITEN_bm)
+.equ PIT_DIV1024_EN,   ((9 << 3) | RTC_PITEN_bm)
 
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    rjmp  main
+    jmp   main
+    .rept 30
+    jmp   default_isr
+    .endr
 
 .section .text
 .global main
@@ -36,6 +40,8 @@ main:
     sts   PORTA_PIN4CTRL, r16
     ldi   r16, ADC_REF_1V1
     sts   VREF_CTRLA, r16
+    ldi   r16, ADC_REFEN
+    sts   VREF_CTRLB, r16
     ldi   r16, ADC_PRESC_DIV16
     sts   ADC0_CTRLC, r16
     ldi   r16, ADC_INITDLY32
@@ -79,3 +85,6 @@ adc0_wait_event_result:
     ldi   r16, ADC_RESRDY_bm
     sts   ADC0_INTFLAGS, r16
     ret
+
+default_isr:
+    reti

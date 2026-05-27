@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "microchip": {
+      "command": "python3",
+      "args": [
+        "/home/gary/Documents/Assembly/asm_book/scripts/microchip_mcp_proxy.py"
+      ],
+      "env": {
+        "MICROCHIP_MCP_URL": "https://api.microchip.com/mcp/resources"
+      }
+    }
+  }
+}

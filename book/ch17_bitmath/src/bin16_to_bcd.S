@@ -10,7 +10,7 @@
  * Clobbers: R16, R17, R22
  *
  * Algorithm: double-dabble (shift-and-add-3)
- * Cycles: 16 × (bcd_adjust [~25] + 5 shifts + 3 loop overhead) ≈ 528
+ * Cycles: data-dependent, roughly 600-700 cycles on AVRxt
  */
 
 #include <avr/io.h>

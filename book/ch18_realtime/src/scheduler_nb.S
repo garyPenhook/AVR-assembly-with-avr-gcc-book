@@ -37,12 +37,22 @@
     jmp   default_isr           /* 0x0030 TCA0_CMP2                           */
     jmp   tcb0_isr              /* 0x0034 TCB0_INT                            */
     jmp   default_isr           /* 0x0038 TCB1_INT                            */
-    jmp   default_isr           /* 0x003C TWI0_TWIS                           */
-    jmp   default_isr           /* 0x0040 TWI0_TWIM                           */
-    jmp   default_isr           /* 0x0044 SPI0_INT                            */
-    jmp   default_isr           /* 0x0048 USART0_RXC                          */
-    jmp   usart0_dre_isr        /* 0x004C USART0_DRE                          */
-    .fill 6 * 4, 1, 0xFF        /* remaining vectors                          */
+    jmp   default_isr           /* 0x003C TCD0_OVF                            */
+    jmp   default_isr           /* 0x0040 TCD0_TRIG                           */
+    jmp   default_isr           /* 0x0044 AC0_AC                              */
+    jmp   default_isr           /* 0x0048 AC1_AC                              */
+    jmp   default_isr           /* 0x004C AC2_AC                              */
+    jmp   default_isr           /* 0x0050 ADC0_RESRDY                         */
+    jmp   default_isr           /* 0x0054 ADC0_WCOMP                          */
+    jmp   default_isr           /* 0x0058 ADC1_RESRDY                         */
+    jmp   default_isr           /* 0x005C ADC1_WCOMP                          */
+    jmp   default_isr           /* 0x0060 TWI0_TWIS                           */
+    jmp   default_isr           /* 0x0064 TWI0_TWIM                           */
+    jmp   default_isr           /* 0x0068 SPI0_INT                            */
+    jmp   default_isr           /* 0x006C USART0_RXC                          */
+    jmp   usart0_dre_isr        /* 0x0070 USART0_DRE                          */
+    jmp   default_isr           /* 0x0074 USART0_TXC                          */
+    jmp   default_isr           /* 0x0078 NVMCTRL_EE                          */
 
 /* ── SRAM variables ────────────────────────────────────────────────────── */
 .section .bss
@@ -172,6 +182,7 @@ reset_handler:
 
     sbi   VPORTA_DIR, LED_PIN
     sbi   VPORTA_OUT, LED_PIN   /* LED off (active low)                       */
+    sbi   VPORTB_OUT, 2         /* idle-high before enabling USART TX          */
     sbi   VPORTB_DIR, 2         /* PB2 = TX output                            */
 
     rcall tcb0_init

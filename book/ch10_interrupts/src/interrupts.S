@@ -34,77 +34,78 @@
 /* ══════════════════════════════════════════════════════════════════════════
  * INTERRUPT VECTOR TABLE
  *
- * ATtiny3217: 2-byte (1-word) entries.  Use RJMP — not JMP (4 bytes).
- * Vector numbers from iotn3217.h; each _VECTOR(n) = byte address n*2.
+ * ATtiny3217: 4-byte (2-word) entries.  Use JMP to fill each slot.
+ * avr-libc defines _VECTOR_SIZE = 4 for this device, so vector n starts
+ * at byte address n*4.
  *
  * RESET      _VECTOR(0)  0x0000  — not in the _VECTOR() sequence; just the
  *                                   first instruction executed after reset.
- * CRCSCAN_NMI _VECTOR(1) 0x0002
- * BOD_VLM    _VECTOR(2)  0x0004
- * PORTA_PORT _VECTOR(3)  0x0006
- * PORTB_PORT _VECTOR(4)  0x0008  ← our button interrupt
- * PORTC_PORT _VECTOR(5)  0x000A
- * RTC_CNT    _VECTOR(6)  0x000C
- * RTC_PIT    _VECTOR(7)  0x000E
- * TCA0_OVF   _VECTOR(8)  0x0010
- * TCA0_HUNF  _VECTOR(9)  0x0012
- * TCA0_CMP0  _VECTOR(10) 0x0014
- * TCA0_CMP1  _VECTOR(11) 0x0016
- * TCA0_CMP2  _VECTOR(12) 0x0018
- * TCB0_INT   _VECTOR(13) 0x001A
- * TCB1_INT   _VECTOR(14) 0x001C
- * TCD0_OVF   _VECTOR(15) 0x001E
- * TCD0_TRIG  _VECTOR(16) 0x0020
- * AC0_AC     _VECTOR(17) 0x0022
- * AC1_AC     _VECTOR(18) 0x0024
- * AC2_AC     _VECTOR(19) 0x0026
- * ADC0_RESRDY _VECTOR(20) 0x0028
- * ADC0_WCOMP  _VECTOR(21) 0x002A
- * ADC1_RESRDY _VECTOR(22) 0x002C
- * ADC1_WCOMP  _VECTOR(23) 0x002E
- * TWI0_TWIS  _VECTOR(24) 0x0030
- * TWI0_TWIM  _VECTOR(25) 0x0032
- * SPI0_INT   _VECTOR(26) 0x0034
- * USART0_RXC _VECTOR(27) 0x0036
- * USART0_DRE _VECTOR(28) 0x0038
- * USART0_TXC _VECTOR(29) 0x003A
- * NVMCTRL_EE _VECTOR(30) 0x003C
+ * CRCSCAN_NMI _VECTOR(1) 0x0004
+ * BOD_VLM    _VECTOR(2)  0x0008
+ * PORTA_PORT _VECTOR(3)  0x000C
+ * PORTB_PORT _VECTOR(4)  0x0010  ← our button interrupt
+ * PORTC_PORT _VECTOR(5)  0x0014
+ * RTC_CNT    _VECTOR(6)  0x0018
+ * RTC_PIT    _VECTOR(7)  0x001C
+ * TCA0_LUNF/TCA0_OVF _VECTOR(8)  0x0020
+ * TCA0_HUNF  _VECTOR(9)  0x0024
+ * TCA0_LCMP0/TCA0_CMP0 _VECTOR(10) 0x0028
+ * TCA0_LCMP1/TCA0_CMP1 _VECTOR(11) 0x002C
+ * TCA0_CMP2/TCA0_LCMP2 _VECTOR(12) 0x0030
+ * TCB0_INT   _VECTOR(13) 0x0034
+ * TCB1_INT   _VECTOR(14) 0x0038
+ * TCD0_OVF   _VECTOR(15) 0x003C
+ * TCD0_TRIG  _VECTOR(16) 0x0040
+ * AC0_AC     _VECTOR(17) 0x0044
+ * AC1_AC     _VECTOR(18) 0x0048
+ * AC2_AC     _VECTOR(19) 0x004C
+ * ADC0_RESRDY _VECTOR(20) 0x0050
+ * ADC0_WCOMP  _VECTOR(21) 0x0054
+ * ADC1_RESRDY _VECTOR(22) 0x0058
+ * ADC1_WCOMP  _VECTOR(23) 0x005C
+ * TWI0_TWIS  _VECTOR(24) 0x0060
+ * TWI0_TWIM  _VECTOR(25) 0x0064
+ * SPI0_INT   _VECTOR(26) 0x0068
+ * USART0_RXC _VECTOR(27) 0x006C
+ * USART0_DRE _VECTOR(28) 0x0070
+ * USART0_TXC _VECTOR(29) 0x0074
+ * NVMCTRL_EE _VECTOR(30) 0x0078
  * ══════════════════════════════════════════════════════════════════════════ */
 
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    rjmp main               /* 0x0000: RESET                                  */
-    rjmp isr_default        /* 0x0002: CRCSCAN_NMI                            */
-    rjmp isr_default        /* 0x0004: BOD_VLM                                */
-    rjmp isr_default        /* 0x0006: PORTA_PORT                             */
-    rjmp portb_isr          /* 0x0008: PORTB_PORT  ← button interrupt         */
-    rjmp isr_default        /* 0x000A: PORTC_PORT                             */
-    rjmp isr_default        /* 0x000C: RTC_CNT                                */
-    rjmp isr_default        /* 0x000E: RTC_PIT                                */
-    rjmp isr_default        /* 0x0010: TCA0_OVF                               */
-    rjmp isr_default        /* 0x0012: TCA0_HUNF                              */
-    rjmp isr_default        /* 0x0014: TCA0_CMP0                              */
-    rjmp isr_default        /* 0x0016: TCA0_CMP1                              */
-    rjmp isr_default        /* 0x0018: TCA0_CMP2                              */
-    rjmp isr_default        /* 0x001A: TCB0_INT                               */
-    rjmp isr_default        /* 0x001C: TCB1_INT                               */
-    rjmp isr_default        /* 0x001E: TCD0_OVF                               */
-    rjmp isr_default        /* 0x0020: TCD0_TRIG                              */
-    rjmp isr_default        /* 0x0022: AC0_AC                                 */
-    rjmp isr_default        /* 0x0024: AC1_AC                                 */
-    rjmp isr_default        /* 0x0026: AC2_AC                                 */
-    rjmp isr_default        /* 0x0028: ADC0_RESRDY                            */
-    rjmp isr_default        /* 0x002A: ADC0_WCOMP                             */
-    rjmp isr_default        /* 0x002C: ADC1_RESRDY                            */
-    rjmp isr_default        /* 0x002E: ADC1_WCOMP                             */
-    rjmp isr_default        /* 0x0030: TWI0_TWIS                              */
-    rjmp isr_default        /* 0x0032: TWI0_TWIM                              */
-    rjmp isr_default        /* 0x0034: SPI0_INT                               */
-    rjmp isr_default        /* 0x0036: USART0_RXC                             */
-    rjmp isr_default        /* 0x0038: USART0_DRE                             */
-    rjmp isr_default        /* 0x003A: USART0_TXC                             */
-    rjmp isr_default        /* 0x003C: NVMCTRL_EE                             */
+    jmp main                /* 0x0000: RESET                                  */
+    jmp isr_default         /* 0x0004: CRCSCAN_NMI                            */
+    jmp isr_default         /* 0x0008: BOD_VLM                                */
+    jmp isr_default         /* 0x000C: PORTA_PORT                             */
+    jmp portb_isr           /* 0x0010: PORTB_PORT  ← button interrupt         */
+    jmp isr_default         /* 0x0014: PORTC_PORT                             */
+    jmp isr_default         /* 0x0018: RTC_CNT                                */
+    jmp isr_default         /* 0x001C: RTC_PIT                                */
+    jmp isr_default         /* 0x0020: TCA0_LUNF/TCA0_OVF                     */
+    jmp isr_default         /* 0x0024: TCA0_HUNF                              */
+    jmp isr_default         /* 0x0028: TCA0_LCMP0/TCA0_CMP0                  */
+    jmp isr_default         /* 0x002C: TCA0_LCMP1/TCA0_CMP1                  */
+    jmp isr_default         /* 0x0030: TCA0_CMP2/TCA0_LCMP2                  */
+    jmp isr_default         /* 0x0034: TCB0_INT                               */
+    jmp isr_default         /* 0x0038: TCB1_INT                               */
+    jmp isr_default         /* 0x003C: TCD0_OVF                               */
+    jmp isr_default         /* 0x0040: TCD0_TRIG                              */
+    jmp isr_default         /* 0x0044: AC0_AC                                 */
+    jmp isr_default         /* 0x0048: AC1_AC                                 */
+    jmp isr_default         /* 0x004C: AC2_AC                                 */
+    jmp isr_default         /* 0x0050: ADC0_RESRDY                            */
+    jmp isr_default         /* 0x0054: ADC0_WCOMP                             */
+    jmp isr_default         /* 0x0058: ADC1_RESRDY                            */
+    jmp isr_default         /* 0x005C: ADC1_WCOMP                             */
+    jmp isr_default         /* 0x0060: TWI0_TWIS                              */
+    jmp isr_default         /* 0x0064: TWI0_TWIM                              */
+    jmp isr_default         /* 0x0068: SPI0_INT                               */
+    jmp isr_default         /* 0x006C: USART0_RXC                             */
+    jmp isr_default         /* 0x0070: USART0_DRE                             */
+    jmp isr_default         /* 0x0074: USART0_TXC                             */
+    jmp isr_default         /* 0x0078: NVMCTRL_EE                             */
 
 /* ══════════════════════════════════════════════════════════════════════════
  * isr_default — catch-all for unhandled interrupts.

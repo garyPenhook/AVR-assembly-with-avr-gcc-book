@@ -80,7 +80,7 @@ with_frame:
     ldd  r25, Y+4
 
     /* Epilogue */
-    adiw r28, 4         ; deallocate locals — Y now points to saved r29
+    adiw r28, 4         ; deallocate locals — SP is below saved r29
     out  SPH, r29       ; restore SP (SPH before SPL when increasing)
     out  SPL, r28
     pop  r29            ; restore Y
@@ -109,8 +109,7 @@ mul8x16:
  *   Output: r25:r24 = n!
  *   Clobbers: r0, r1, r16, r22, r23
  *
- *   Stack usage per call: 2 bytes return address + 1 byte saved n
- *                       = 3 bytes.  Max depth for n=8: 24 bytes.
+ *   Peak stack for n=8: 8 return addresses + 7 saved n bytes = 23 bytes.
  * ════════════════════════════════════════════════════════════════════════ */
 .global factorial
 

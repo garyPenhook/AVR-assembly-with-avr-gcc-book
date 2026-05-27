@@ -2,10 +2,10 @@
  * spi_eeprom.S — write one byte to a 25LC010A SPI EEPROM
  * Target:  ATtiny3217 @ 3.333 MHz internal oscillator
  * Wiring:
- *   PA1 (MOSI) → EEPROM SI
- *   PA2 (MISO) ← EEPROM SO
- *   PA3 (SCK)  → EEPROM SCK
- *   PA4 (CS)   → EEPROM CS̄  (active-low, software-controlled)
+ *   PA1 (MOSI) -> EEPROM SI
+ *   PA2 (MISO) <- EEPROM SO
+ *   PA3 (SCK)  -> EEPROM SCK
+ *   PA4 (CS)   -> EEPROM CS   (active-low, software-controlled)
  *   3.3 V / GND as required; WP and HOLD tied high.
  *
  * What it does:
@@ -40,11 +40,16 @@
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    rjmp  main          /* 0x0000: RESET                                    */
-    .fill 30, 2, 0xCFFF /* fill remaining vectors with RJMP . (self-loop)  */
+    jmp   main          /* 0x0000: RESET                                    */
+    .rept 30            /* remaining ATtiny3217 vectors are 4-byte entries  */
+    jmp   isr_default
+    .endr
 
 /* ── Text ─────────────────────────────────────────────────────────────── */
 .section .text
+
+isr_default:
+    reti
 
 /* ── spi_transfer — exchange one byte over SPI ──────────────────────── */
 /*

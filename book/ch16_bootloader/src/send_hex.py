@@ -8,7 +8,7 @@ Usage:
 The script:
   1. Opens the serial port at 9600 baud.
   2. Waits for "SU\r\n" (self-updater banner).
-  3. Coalesces input into 64-byte page records.
+  3. Coalesces input into 128-byte page records.
   4. Sends each data record, waits for '.' (ACK) or '!' (NACK).
   5. Sends the EOF record, waits for "OK\r\n".
 """
@@ -20,7 +20,7 @@ import serial
 PORT = sys.argv[1] if len(sys.argv) > 1 else "/dev/ttyUSB0"
 HEX_FILE = sys.argv[2] if len(sys.argv) > 2 else "firmware.hex"
 BAUD = 9600
-PAGE_SIZE = 64
+PAGE_SIZE = 128
 
 
 def checksum_record(length, address, rectype, data):

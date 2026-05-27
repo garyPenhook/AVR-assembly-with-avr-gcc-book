@@ -116,6 +116,14 @@ main:
     ldi r17, 7
     rcall div8u_clean       ; r18 = 14 (quotient), r19 = 2 (remainder)
 
+    /* -- 16-bit / 8-bit divide (unsigned) -------------------------------
+     * r25:r24 / r16 -> quotient r25:r24, remainder r18.
+     * 256 / 129 = 1 remainder 127 exercises the 9th remainder bit.      */
+    ldi r24, lo8(256)
+    ldi r25, hi8(256)
+    ldi r16, 129
+    rcall div16u8           ; r25:r24 = 1, r18 = 127
+
     /* ── Absolute value of signed 8-bit ─────────────────────────────────
      * If r16 < 0: negate it. Else leave it.                            */
     ldi r16, 0xD2           ; = -46 signed
@@ -147,4 +155,38 @@ div8u_clean:
 2:
     dec  r20
     brne 1b
+    ret
+
+/* ------------------------------------------------------------------------
+ * div16u8 -- restoring unsigned 16-bit / 8-bit division
+ *   Input:  r25:r24 = dividend, r16 = divisor
+ *   Output: r25:r24 = quotient, r18 = remainder
+ *   Clobbers: r19, r20, r21, r22, r23
+ * ------------------------------------------------------------------------ */
+div16u8:
+    clr  r18                ; remainder low = 0
+    clr  r22                ; remainder high = 0
+    clr  r23                ; zero register for 16-bit subtract
+    ldi  r19, 16            ; 16 bits
+    clr  r20                ; quotient low
+    clr  r21                ; quotient high
+1:
+    lsl  r24                ; shift MSB of dividend into C
+    rol  r25
+    rol  r18                ; remainder <<= 1, | C
+    rol  r22                ; keep the 9th remainder bit
+    lsl  r20                ; quotient <<= 1
+    rol  r21
+    tst  r22                ; high byte nonzero means remainder >= divisor
+    brne 3f
+    cp   r18, r16
+    brlo 2f
+3:
+    sub  r18, r16
+    sbc  r22, r23
+    ori  r20, 1             ; quotient bit = 1
+2:
+    dec  r19
+    brne 1b
+    movw r24, r20           ; quotient -> r25:r24
     ret

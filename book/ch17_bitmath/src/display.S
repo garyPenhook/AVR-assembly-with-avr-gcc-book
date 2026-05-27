@@ -1,13 +1,13 @@
 /* display.S — ADC reading → temperature → BCD → SPI 7-segment display
  *
  * Target: ATmega328P (has SPI hardware and MUL instruction)
- * Wiring: MAX7219 or similar SPI 7-segment driver on SPI0
+ * Wiring: raw segment-byte SPI/shift-register display interface on SPI0
  *         SS  = PB2, SCK = PB5, MOSI = PB3
  *
  * Temperature scaling:
  *   Assumes 10-bit ADC, linear sensor: 0 → 0.0°C, 1023 → 99.9°C
- *   Formula: temp10 = (adc × 999 + 512) >> 10  (0.1°C units, 0–999)
- *   Error < 0.1°C across range.
+ *   Formula: temp10 = (adc × 63998 + 32768) >> 16
+ *            63998 = round(999 / 1023 × 65536)
  *
  * Register map:
  *   R25:R24  ADC reading (0–1023)
@@ -81,124 +81,59 @@ spi_send:
 /* ------------------------------------------------------------------ */
 /* scale_adc — convert 10-bit ADC reading to temp × 10 (0–999)       */
 /*                                                                     */
-/* Formula: temp10 = (adc × 999 + 512) >> 10                          */
-/*          999 = 0x3E7                                                */
+/* Formula: temp10 = (adc × 63998 + 32768) >> 16                       */
+/*          63998 = 0xF9FE = round(999 / 1023 × 65536)                 */
 /*                                                                     */
 /* 32-bit intermediate to avoid overflow:                              */
-/*   adc ≤ 1023; adc × 999 ≤ 1,021,977 (fits in 20 bits)             */
-/*   Use R27:R26:R25:R24 as 32-bit accumulator                        */
+/*   adc ≤ 1023; adc × 63998 ≤ 65,469,954 (fits in 26 bits)           */
+/*   Use R19:R18:R17:R16 as 32-bit accumulator                        */
 /*                                                                     */
 /* Entry:  R25:R24 = ADC (0–1023)                                     */
 /* Exit:   R23:R22 = temp × 10 (0–999)                                */
-/* Clobbers: R16–R20, R26, R27                                        */
+/* Clobbers: R0, R1, R16–R21                                          */
 /* ------------------------------------------------------------------ */
 .global scale_adc
 scale_adc:
-    /* 32-bit product = R27:R26:R25:R24 × 999                               */
-    /* Use R19:R18:R17:R16 as accumulator; input is 16-bit so R27:R26 = 0   */
+    /* 32-bit product = ADC * 0xF9FE in R19:R18:R17:R16. */
     clr   r16
     clr   r17
     clr   r18
     clr   r19
+    clr   r21           /* zero for carry propagation */
 
-    movw  r26, r24      /* R27:R26 = input (R27=0 since adc ≤ 1023 < 0x400) */
-    clr   r27
+    /* AL * low(scale) -> bits [15:0] */
+    ldi   r20, lo8(63998)
+    mul   r24, r20
+    movw  r16, r0
 
-    /* 999 = 512 + 256 + 128 + 64 + 32 + 4 + 2 + 1 */
-    /* Accumulate: result += input << k for each set bit k in 999 */
-
-    /* bit 0 (weight 1): add R27:R26 to accum */
-    add   r16, r26
-    adc   r17, r27
+    /* AH * low(scale) -> bits [23:8] */
+    mul   r25, r20
+    add   r17, r0
     adc   r18, r1
+    adc   r19, r21
+
+    /* AL * high(scale) -> bits [23:8] */
+    ldi   r20, hi8(63998)
+    mul   r24, r20
+    add   r17, r0
+    adc   r18, r1
+    adc   r19, r21
+
+    /* AH * high(scale) -> bits [31:16] */
+    mul   r25, r20
+    add   r18, r0
     adc   r19, r1
 
-    /* bit 1 (weight 2): shift input left once, add */
-    lsl   r26
-    rol   r27
-    add   r16, r26
-    adc   r17, r27
-    adc   r18, r1
-    adc   r19, r1
+    /* Round before >> 16 by adding 0x00008000. */
+    ldi   r20, 0x80
+    add   r17, r20
+    adc   r18, r21
+    adc   r19, r21
 
-    /* bit 2 (weight 4): shift, add */
-    lsl   r26
-    rol   r27
-    add   r16, r26
-    adc   r17, r27
-    adc   r18, r1
-    adc   r19, r1
+    clr   r1            /* restore zero-register convention after MUL */
 
-    /* bits 3, 4 not set in 999; skip shifts 3 and 4 but keep shifting     */
-    lsl   r26
-    rol   r27           /* × 8 */
-    lsl   r26
-    rol   r27           /* × 16 */
-
-    /* bit 5 (weight 32): add */
-    lsl   r26
-    rol   r27
-    add   r16, r26
-    adc   r17, r27
-    adc   r18, r1
-    adc   r19, r1
-
-    /* bit 6 (weight 64) */
-    lsl   r26
-    rol   r27
-    add   r16, r26
-    adc   r17, r27
-    adc   r18, r1
-    adc   r19, r1
-
-    /* bit 7 (weight 128) */
-    lsl   r26
-    rol   r27
-    add   r16, r26
-    adc   r17, r27
-    adc   r18, r1
-    adc   r19, r1
-
-    /* bit 8 (weight 256) */
-    lsl   r26
-    rol   r27
-    add   r16, r26
-    adc   r17, r27
-    adc   r18, r1
-    adc   r19, r1
-
-    /* bit 9 (weight 512) */
-    lsl   r26
-    rol   r27
-    add   r16, r26
-    adc   r17, r27
-    adc   r18, r1
-    adc   r19, r1
-
-    /* add rounding constant 512 before shifting */
-    ldi   r20, lo8(512)
-    add   r16, r20
-    ldi   r20, hi8(512)
-    adc   r17, r20
-    adc   r18, r1
-    adc   r19, r1
-
-    /* right shift 32-bit accum by 10 (two 5-bit shifts, or shift 8 + shift 2) */
-    /* shift 8: result = R19:R18:R17  (discard R16) */
-    mov   r16, r17
-    mov   r17, r18
-    mov   r18, r19
-    clr   r19
-    /* shift 2 more: */
-    lsr   r18
-    ror   r17
-    ror   r16
-    lsr   r18
-    ror   r17
-    ror   r16
-
-    /* R17:R16 = temp × 10 (0–999) */
-    movw  r22, r16
+    /* R19:R18 = temp × 10 (0–999) */
+    movw  r22, r18
     ret
 
 /* ------------------------------------------------------------------ */
@@ -226,7 +161,7 @@ send_digit_dp:
 /* display_temp — scale ADC, convert to BCD, drive 4-digit display    */
 /*                                                                     */
 /* Entry:  R25:R24 = ADC reading (0–1023)                             */
-/* Display format:  [D3][D2][D1].[D0]  e.g. " 36.5" for 36.5°C       */
+/* Display format:  [blank][tens][ones].[tenths], e.g. " 36.5"       */
 /* ------------------------------------------------------------------ */
 .global display_temp
 display_temp:
@@ -239,38 +174,24 @@ display_temp:
     andi  r16, ~(1<<PB2)
     out   _SFR_IO_ADDR(PORTB), r16
 
-    /* Digit 3 (hundreds — leading zero blank) */
-    mov   r16, r20
-    andi  r16, 0x0F     /* hundreds digit */
-    breq  .Ldisp_blank_d3
-    rcall send_digit
-    rjmp  .Ldisp_d2
-.Ldisp_blank_d3:
+    /* Digit 3: blank, because scaled range is 0.0 through 99.9. */
     ldi   r17, 0x00     /* all segments off */
     rcall spi_send
 
-.Ldisp_d2:
-    /* Digit 2 (tens) */
-    mov   r16, r19
-    swap  r16
+    /* Digit 2: tens of degrees (hundreds digit of temp×10) */
+    mov   r16, r20
     andi  r16, 0x0F
     rcall send_digit
 
-    /* Digit 1 (ones) + decimal point */
+    /* Digit 1: ones of degrees (tens digit of temp×10), with decimal point */
     mov   r16, r19
+    swap  r16
     andi  r16, 0x0F
     rcall send_digit_dp
 
-    /* Digit 0 (tenths) — this is the ones digit of temp×10
-       (temp×10 ones = temp tenths) */
-    /* Reload BCD of temp×10 ones digit from R19 after bin16_to_bcd.
-       temp×10 was in R23:R22; BCD is still valid in R19. */
-    /* The ones digit of temp×10 IS the tenths of temp. Already in R19[3:0]. */
+    /* Digit 0: tenths of degrees (ones digit of temp×10) */
     mov   r16, r19
     andi  r16, 0x0F
-    /* Actually, bin16_to_bcd was called with temp×10. The ones digit of
-       temp×10 = (temp×10) mod 10 = 10×(fractional part of temp). This is
-       the tenths digit. Correct. */
     rcall send_digit
 
     /* Deassert SS */

@@ -21,37 +21,37 @@
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    rjmp  main           /* 0x0000: RESET                                   */
-    rjmp  isr_default    /* 0x0002: CRCSCAN_NMI                             */
-    rjmp  isr_default    /* 0x0004: BOD_VLM                                 */
-    rjmp  isr_default    /* 0x0006: PORTA_PORT                              */
-    rjmp  isr_default    /* 0x0008: PORTB_PORT                              */
-    rjmp  isr_default    /* 0x000A: PORTC_PORT                              */
-    rjmp  isr_default    /* 0x000C: RTC_CNT                                 */
-    rjmp  isr_default    /* 0x000E: RTC_PIT                                 */
-    rjmp  isr_default    /* 0x0010: TCA0_OVF  (not enabled here)           */
-    rjmp  isr_default    /* 0x0012: TCA0_HUNF                               */
-    rjmp  tca0_cmp0_isr  /* 0x0014: TCA0_CMP0 ← our compare-match handler  */
-    rjmp  isr_default    /* 0x0016: TCA0_CMP1                               */
-    rjmp  isr_default    /* 0x0018: TCA0_CMP2                               */
-    rjmp  isr_default    /* 0x001A: TCB0_INT                                */
-    rjmp  isr_default    /* 0x001C: TCB1_INT                                */
-    rjmp  isr_default    /* 0x001E: TCD0_OVF                                */
-    rjmp  isr_default    /* 0x0020: TCD0_TRIG                               */
-    rjmp  isr_default    /* 0x0022: AC0_AC                                  */
-    rjmp  isr_default    /* 0x0024: AC1_AC                                  */
-    rjmp  isr_default    /* 0x0026: AC2_AC                                  */
-    rjmp  isr_default    /* 0x0028: ADC0_RESRDY                             */
-    rjmp  isr_default    /* 0x002A: ADC0_WCOMP                              */
-    rjmp  isr_default    /* 0x002C: ADC1_RESRDY                             */
-    rjmp  isr_default    /* 0x002E: ADC1_WCOMP                              */
-    rjmp  isr_default    /* 0x0030: TWI0_TWIS                               */
-    rjmp  isr_default    /* 0x0032: TWI0_TWIM                               */
-    rjmp  isr_default    /* 0x0034: SPI0_INT                                */
-    rjmp  isr_default    /* 0x0036: USART0_RXC                              */
-    rjmp  isr_default    /* 0x0038: USART0_DRE                              */
-    rjmp  isr_default    /* 0x003A: USART0_TXC                              */
-    rjmp  isr_default    /* 0x003C: NVMCTRL_EE                              */
+    jmp  main            /* 0x0000: RESET                                   */
+    jmp  isr_default     /* 0x0004: CRCSCAN_NMI                             */
+    jmp  isr_default     /* 0x0008: BOD_VLM                                 */
+    jmp  isr_default     /* 0x000C: PORTA_PORT                              */
+    jmp  isr_default     /* 0x0010: PORTB_PORT                              */
+    jmp  isr_default     /* 0x0014: PORTC_PORT                              */
+    jmp  isr_default     /* 0x0018: RTC_CNT                                 */
+    jmp  isr_default     /* 0x001C: RTC_PIT                                 */
+    jmp  isr_default     /* 0x0020: TCA0_LUNF/TCA0_OVF (not enabled here)   */
+    jmp  isr_default     /* 0x0024: TCA0_HUNF                               */
+    jmp  tca0_cmp0_isr   /* 0x0028: TCA0_LCMP0/TCA0_CMP0 handler           */
+    jmp  isr_default     /* 0x002C: TCA0_LCMP1/TCA0_CMP1                   */
+    jmp  isr_default     /* 0x0030: TCA0_CMP2/TCA0_LCMP2                   */
+    jmp  isr_default     /* 0x0034: TCB0_INT                                */
+    jmp  isr_default     /* 0x0038: TCB1_INT                                */
+    jmp  isr_default     /* 0x003C: TCD0_OVF                                */
+    jmp  isr_default     /* 0x0040: TCD0_TRIG                               */
+    jmp  isr_default     /* 0x0044: AC0_AC                                  */
+    jmp  isr_default     /* 0x0048: AC1_AC                                  */
+    jmp  isr_default     /* 0x004C: AC2_AC                                  */
+    jmp  isr_default     /* 0x0050: ADC0_RESRDY                             */
+    jmp  isr_default     /* 0x0054: ADC0_WCOMP                              */
+    jmp  isr_default     /* 0x0058: ADC1_RESRDY                             */
+    jmp  isr_default     /* 0x005C: ADC1_WCOMP                              */
+    jmp  isr_default     /* 0x0060: TWI0_TWIS                               */
+    jmp  isr_default     /* 0x0064: TWI0_TWIM                               */
+    jmp  isr_default     /* 0x0068: SPI0_INT                                */
+    jmp  isr_default     /* 0x006C: USART0_RXC                              */
+    jmp  isr_default     /* 0x0070: USART0_DRE                              */
+    jmp  isr_default     /* 0x0074: USART0_TXC                              */
+    jmp  isr_default     /* 0x0078: NVMCTRL_EE                              */
 
 /* ── Text ─────────────────────────────────────────────────────────────── */
 .section .text

@@ -22,8 +22,10 @@
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    rjmp  main
-    .fill 30, 2, 0xCFFF
+    jmp   main
+    .rept 30
+    jmp   isr_default
+    .endr
 
 /* -- Flash test message ------------------------------------------------- */
 .section .text
@@ -39,6 +41,9 @@ crc_result:
 
 /* -- Code --------------------------------------------------------------- */
 .section .text
+
+isr_default:
+    reti
 
 /*
  * crc8_flash

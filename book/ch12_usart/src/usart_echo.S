@@ -11,7 +11,7 @@
  *
  * Pins (ATtiny3217 default USART0 mux):
  *   TXD → PB2   (configure as output)
- *   RXD ← PB3   (configure as input, no pull-up needed with RS-232 driver)
+ *   RXD ← PB3   (input; external UART adapter/debugger drives the line)
  */
 
 #include <avr/io.h>
@@ -20,7 +20,7 @@
  * USART0_BAUD = (f_cpu × 64) / (16 × baud)  [asynchronous normal mode]
  *             = (3333333 × 64) / (16 × 9600)
  *             = 213333312 / 153600
- *             = 1389.0  → 0x056D
+ *             = 1388.9  → round to 1389 = 0x056D
  */
 .equ BAUD_9600,   1389
 .equ BAUD_LO,     0x6D
@@ -33,37 +33,37 @@
 .section .vectors, "ax", @progbits
 .global __vectors
 __vectors:
-    rjmp  main           /* 0x0000: RESET                                   */
-    rjmp  isr_default    /* 0x0002: CRCSCAN_NMI                             */
-    rjmp  isr_default    /* 0x0004: BOD_VLM                                 */
-    rjmp  isr_default    /* 0x0006: PORTA_PORT                              */
-    rjmp  isr_default    /* 0x0008: PORTB_PORT                              */
-    rjmp  isr_default    /* 0x000A: PORTC_PORT                              */
-    rjmp  isr_default    /* 0x000C: RTC_CNT                                 */
-    rjmp  isr_default    /* 0x000E: RTC_PIT                                 */
-    rjmp  isr_default    /* 0x0010: TCA0_OVF                                */
-    rjmp  isr_default    /* 0x0012: TCA0_HUNF                               */
-    rjmp  isr_default    /* 0x0014: TCA0_CMP0                               */
-    rjmp  isr_default    /* 0x0016: TCA0_CMP1                               */
-    rjmp  isr_default    /* 0x0018: TCA0_CMP2                               */
-    rjmp  isr_default    /* 0x001A: TCB0_INT                                */
-    rjmp  isr_default    /* 0x001C: TCB1_INT                                */
-    rjmp  isr_default    /* 0x001E: TCD0_OVF                                */
-    rjmp  isr_default    /* 0x0020: TCD0_TRIG                               */
-    rjmp  isr_default    /* 0x0022: AC0_AC                                  */
-    rjmp  isr_default    /* 0x0024: AC1_AC                                  */
-    rjmp  isr_default    /* 0x0026: AC2_AC                                  */
-    rjmp  isr_default    /* 0x0028: ADC0_RESRDY                             */
-    rjmp  isr_default    /* 0x002A: ADC0_WCOMP                              */
-    rjmp  isr_default    /* 0x002C: ADC1_RESRDY                             */
-    rjmp  isr_default    /* 0x002E: ADC1_WCOMP                              */
-    rjmp  isr_default    /* 0x0030: TWI0_TWIS                               */
-    rjmp  isr_default    /* 0x0032: TWI0_TWIM                               */
-    rjmp  isr_default    /* 0x0034: SPI0_INT                                */
-    rjmp  usart0_rxc_isr /* 0x0036: USART0_RXC ← our RX handler            */
-    rjmp  isr_default    /* 0x0038: USART0_DRE                              */
-    rjmp  isr_default    /* 0x003A: USART0_TXC                              */
-    rjmp  isr_default    /* 0x003C: NVMCTRL_EE                              */
+    jmp   main           /* 0x0000: RESET                                   */
+    jmp   isr_default    /* 0x0004: CRCSCAN_NMI                             */
+    jmp   isr_default    /* 0x0008: BOD_VLM                                 */
+    jmp   isr_default    /* 0x000C: PORTA_PORT                              */
+    jmp   isr_default    /* 0x0010: PORTB_PORT                              */
+    jmp   isr_default    /* 0x0014: PORTC_PORT                              */
+    jmp   isr_default    /* 0x0018: RTC_CNT                                 */
+    jmp   isr_default    /* 0x001C: RTC_PIT                                 */
+    jmp   isr_default    /* 0x0020: TCA0_LUNF/TCA0_OVF                     */
+    jmp   isr_default    /* 0x0024: TCA0_HUNF                               */
+    jmp   isr_default    /* 0x0028: TCA0_LCMP0/TCA0_CMP0                   */
+    jmp   isr_default    /* 0x002C: TCA0_LCMP1/TCA0_CMP1                   */
+    jmp   isr_default    /* 0x0030: TCA0_CMP2/TCA0_LCMP2                   */
+    jmp   isr_default    /* 0x0034: TCB0_INT                                */
+    jmp   isr_default    /* 0x0038: TCB1_INT                                */
+    jmp   isr_default    /* 0x003C: TCD0_OVF                                */
+    jmp   isr_default    /* 0x0040: TCD0_TRIG                               */
+    jmp   isr_default    /* 0x0044: AC0_AC                                  */
+    jmp   isr_default    /* 0x0048: AC1_AC                                  */
+    jmp   isr_default    /* 0x004C: AC2_AC                                  */
+    jmp   isr_default    /* 0x0050: ADC0_RESRDY                             */
+    jmp   isr_default    /* 0x0054: ADC0_WCOMP                              */
+    jmp   isr_default    /* 0x0058: ADC1_RESRDY                             */
+    jmp   isr_default    /* 0x005C: ADC1_WCOMP                              */
+    jmp   isr_default    /* 0x0060: TWI0_TWIS                               */
+    jmp   isr_default    /* 0x0064: TWI0_TWIM                               */
+    jmp   isr_default    /* 0x0068: SPI0_INT                                */
+    jmp   usart0_rxc_isr /* 0x006C: USART0_RXC ← our RX handler            */
+    jmp   isr_default    /* 0x0070: USART0_DRE                              */
+    jmp   isr_default    /* 0x0074: USART0_TXC                              */
+    jmp   isr_default    /* 0x0078: NVMCTRL_EE                              */
 
 /* ── Text ─────────────────────────────────────────────────────────────── */
 .section .text
@@ -80,7 +80,7 @@ isr_default:
 /* ── usart_tx_byte — send r16 via polling TX ──────────────────────────── */
 /*
  * Waits until DREIF (Data Register Empty Flag) is set, then writes r16 to
- * TXDATA. Does not return until the byte is in the shift register.
+ * TXDATA. Returns after the byte is accepted into the transmit buffer.
  * Clobbers: r17 (loop register), r16 unchanged (value written to TXDATA)
  */
 usart_tx_byte:
@@ -140,10 +140,11 @@ main:
     ldi   r16, lo8(RAMEND)
     out   SPL, r16
 
-    /* Configure TXD pin PB2 as output */
+    /* Drive PB2 high before TXEN takes over the TXD pin */
+    sbi   VPORTB_OUT, TXD_BIT
     sbi   VPORTB_DIR, TXD_BIT
 
-    /* RXD pin PB3: leave as input (default), no pull-up needed */
+    /* RXD pin PB3: leave as input (default) */
 
     /* USART0 setup:
      *   BAUD:    9600 bps register value
