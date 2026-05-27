@@ -2,4 +2,4 @@
 *.elf
 book/tmp/pdfs/
 scripts/__pycache__/
-book/output/pdf/build-*.log
+book/output/pdf/build*.log

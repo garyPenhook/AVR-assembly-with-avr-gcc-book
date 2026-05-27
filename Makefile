@@ -1,9 +1,9 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
+# Book revision label (for release notes / tags only; the repo ships one PDF).
 PDF_VERSION := v1.9
-PDF_VERSIONED := $(PDF_DIR)/$(PDF_NAME)-$(PDF_VERSION).pdf
-PDF_LATEST := $(PDF_DIR)/$(PDF_NAME).pdf
-PDF_LOG := $(PDF_DIR)/build-$(PDF_VERSION).log
+PDF_OUTPUT := $(PDF_DIR)/$(PDF_NAME).pdf
+PDF_LOG := $(PDF_DIR)/build.log
 
 SHELL := /bin/bash
 
@@ -65,10 +65,9 @@ PANDOC_FLAGS := \
 
 .PHONY: pdf clean-pdf
 
-pdf: $(PDF_VERSIONED)
-	cp $(PDF_VERSIONED) $(PDF_LATEST)
+pdf: $(PDF_OUTPUT)
 
-$(PDF_VERSIONED): $(CHAPTERS) book/toc-format.tex book/pdf-preamble.tex | $(PDF_DIR)
+$(PDF_OUTPUT): $(CHAPTERS) book/toc-format.tex book/pdf-preamble.tex | $(PDF_DIR)
 	set -o pipefail; pandoc $(CHAPTERS) $(PANDOC_FLAGS) -o $@ 2>&1 | tee $(PDF_LOG)
 	-command -v pdfinfo >/dev/null 2>&1 && pdfinfo $@ >> $(PDF_LOG) 2>&1
 
@@ -76,4 +75,4 @@ $(PDF_DIR):
 	mkdir -p $@
 
 clean-pdf:
-	rm -f $(PDF_VERSIONED) $(PDF_LATEST) $(PDF_LOG)
+	rm -f $(PDF_OUTPUT) $(PDF_LOG)

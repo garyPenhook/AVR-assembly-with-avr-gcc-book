@@ -49,14 +49,13 @@ make pdf
 Generated PDFs are written to:
 
 ```text
-book/output/pdf/avr-assembly-programming-v1.9.pdf
 book/output/pdf/avr-assembly-programming.pdf
 ```
 
 The build log is written to:
 
 ```text
-book/output/pdf/build-v1.9.log
+book/output/pdf/build.log
 ```
 
 ## Source Layout
