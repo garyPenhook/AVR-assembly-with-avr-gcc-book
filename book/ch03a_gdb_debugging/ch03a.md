@@ -246,6 +246,354 @@ For this book, the practical rule is simple: treat PA0/UPDI as a debug lifeline.
 Do not use it as an ordinary GPIO pin in examples unless you also explain how
 the board can be recovered.
 
+### 3. PyAvrOCD Debugging Guide
+
+PyAvrOCD is a GDB server for 8-bit AVR targets. GDB does not talk directly to
+the ATtiny3217 Curiosity Nano. GDB talks to a server over a local TCP port, and
+the server talks to the board's debug probe over USB. On this board the probe
+is the on-board nEDBG, and the MCU debug interface is UPDI.
+
+The debug path is:
+
+```text
+avr-gdb or a GDB GUI
+        |
+        | GDB remote serial protocol on localhost:2000
+        v
+pyavrocd
+        |
+        | USB to the Curiosity Nano nEDBG probe
+        v
+ATtiny3217 over UPDI on PA0
+```
+
+This means there are three separate pieces to debug when a session fails:
+
+- the ELF file and symbols that GDB sees
+- the PyAvrOCD server process and its command-line options
+- the physical/debug connection from nEDBG to the ATtiny3217 UPDI pin
+
+#### Install and Sanity Check
+
+The PyAvrOCD documentation describes several install paths: release archives,
+Python package installation with `pipx` or `pip`, and running from the GitHub
+repository. Any of those are fine as long as `pyavrocd` and `avr-gdb` are
+available from the shell you use for the book examples.
+
+Check the tools first:
+
+```bash
+pyavrocd --version
+pyavrocd --help
+avr-gdb --version
+```
+
+On Linux, PyAvrOCD may need udev rules before a normal user can access
+Microchip debug probes. If the board is plugged in and PyAvrOCD reports that no
+compatible tool was discovered, fix host USB permissions before changing code,
+fuses, or wiring.
+
+#### Curiosity Nano Setup
+
+The ATtiny3217 Curiosity Nano already has the necessary debug probe on the
+board. For the unmodified board:
+
+- connect the board by USB
+- leave the debugger straps intact
+- leave PA0/UPDI available for programming and debugging
+- do not add capacitive loads, strong resistive loads, or active circuitry to
+  the UPDI line
+
+External UPDI wiring is not needed for this board. PyAvrOCD can also work with
+external probes on other boards, but the Curiosity Nano case is simpler: USB to
+the board is the debug connection.
+
+#### Build an ELF for Debugging
+
+Debug the ELF file, not only the HEX file. The ELF carries the sections,
+symbols, line information, and addresses GDB needs.
+
+Build the companion example from `book/ch03a_gdb_debugging`:
+
+```bash
+avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -g3 -Wa,--gdwarf-2 \
+    -c -o gdb_demo.o src/gdb_demo.S
+
+avr-gcc -mmcu=attiny3217 -nostartfiles -g3 \
+    -o gdb_demo.elf gdb_demo.o
+```
+
+For C or mixed C/assembly projects, PyAvrOCD's documentation recommends
+debug-friendly compiler settings: use debug information, prefer `-Og` while
+debugging, avoid `-flto` where possible, and do not use `-mrelax` because it can
+distort line information. For pure assembly, the equivalent discipline is:
+keep named labels, keep line information, and do not let the linker rewrite
+jump layout while you are matching source, symbols, and addresses.
+
+#### Start the PyAvrOCD Server
+
+Run PyAvrOCD from the directory that contains `gdb_demo.elf`:
+
+```bash
+pyavrocd -d attiny3217 -i updi -t nedbg -p 2000 -e gdb_demo.elf
+```
+
+PyAvrOCD should connect to the probe, identify the target, start the server,
+and listen for a GDB connection on port 2000.
+
+The options used here are deliberately explicit:
+
+| Option | Long form | Meaning |
+|--------|-----------|---------|
+| `-d attiny3217` | `--device attiny3217` | Selects the target MCU. This is the required option. |
+| `-i updi` | `--interface updi` | Selects UPDI. This is the ATtiny3217 debug interface. |
+| `-t nedbg` | `--tool nedbg` | Selects the Curiosity Nano on-board debugger. |
+| `-p 2000` | `--port 2000` | Selects the TCP port where GDB connects. Port 2000 is the default. |
+| `-e gdb_demo.elf` | `--elf-file gdb_demo.elf` | Lets PyAvrOCD inspect the ELF and reject known-bad debug setups such as `-mrelax`. |
+
+Only `-d` is mandatory in the general PyAvrOCD command line. This book keeps
+the other options visible because visible choices are easier to audit when
+several probes, ports, or target boards are attached.
+
+Useful variations:
+
+```bash
+pyavrocd -d attiny3217 -i updi -t nedbg -p 2001 -e gdb_demo.elf
+pyavrocd -d attiny3217 -i updi -t nedbg -e gdb_demo.elf --verbose debug
+pyavrocd -d attiny3217 -i updi -t nedbg -e gdb_demo.elf --reboot-debugger
+```
+
+Use a different port if another server still owns port 2000. Use verbose
+logging when the server starts but the behavior is unclear. Rebooting the
+debugger can help when the host-side probe state is stale.
+
+#### Connect GDB
+
+Open a second terminal in the same directory:
+
+```bash
+avr-gdb --nx gdb_demo.elf
+```
+
+Then connect to PyAvrOCD:
+
+```gdb
+set pagination off
+set radix 16
+set disassemble-next-line on
+display/i $pc
+
+target remote :2000
+```
+
+At this point GDB is connected to the server, but the target flash may still
+contain an old image. Load the ELF through PyAvrOCD:
+
+```gdb
+load
+```
+
+The `load` command matters. It sends the ELF contents through PyAvrOCD so the
+target flash matches the symbols, addresses, and disassembly GDB is using. A
+common embedded-debugging mistake is to rebuild the ELF but forget to program
+the target. After that mistake, breakpoints and symbols describe one program
+while the chip runs another one.
+
+Now break at a named label and run:
+
+```gdb
+break main
+break sum_loop
+break break_here
+continue
+```
+
+Then debug at instruction level:
+
+```gdb
+si
+info registers
+x/8i $pc
+x/1xb &sum_result
+```
+
+The same commands work from a GUI front end, because the GUI is still driving
+GDB underneath.
+
+#### Optional: Start a GDB Front End
+
+PyAvrOCD can start another program after the server is up:
+
+```bash
+pyavrocd -d attiny3217 -i updi -t nedbg -p 2000 -e gdb_demo.elf --start gede
+```
+
+`--start gede` launches Gede if it is installed and in `PATH`. Gede is a GDB
+front end; PyAvrOCD is still the GDB server. In Gede, configure the program as
+`gdb_demo.elf`, use `avr-gdb` as the debugger, connect to `:2000`, and run the
+same startup commands:
+
+```gdb
+target remote :2000
+load
+break main
+continue
+```
+
+Do not add `monitor debugwire enable` for the ATtiny3217 Curiosity Nano. That
+command is for debugWIRE targets. The ATtiny3217 uses UPDI.
+
+#### Monitor Commands
+
+GDB commands control GDB. `monitor` commands are passed through GDB to
+PyAvrOCD. They control server behavior.
+
+Useful commands for this book:
+
+| Command | Use |
+|---------|-----|
+| `monitor help` | Print PyAvrOCD monitor help. |
+| `monitor info` | Show target and debugger state. |
+| `monitor version` | Show the PyAvrOCD version. |
+| `monitor reset` | Reset the MCU. |
+| `monitor breakpoints all` | Permit both software and hardware breakpoints. |
+| `monitor breakpoints hardware` | Use only hardware breakpoints. |
+| `monitor breakpoints software` | Use only software breakpoints. |
+| `monitor load readbeforewrite` | Compare flash pages and skip unchanged writes when loading. |
+| `monitor load writeonly` | Write flash pages without comparing first. |
+| `monitor load noinitialload` | Skip the first load when the exact image is already present. |
+| `monitor verify enable` | Verify flash after loading pages. |
+| `monitor verify disable` | Disable flash verification. |
+| `monitor atexit stay` | Leave the target in debug mode when the server exits. |
+| `monitor atexit leave` | Leave debug mode on exit where the interface supports it. |
+| `monitor singlestep safe` | Protect single stepping against interrupt surprises. |
+| `monitor singlestep interruptible` | Allow interrupts to affect single stepping. |
+
+Most monitor settings can also be supplied as PyAvrOCD command-line options.
+For example:
+
+```bash
+pyavrocd -d attiny3217 -i updi -t nedbg -e gdb_demo.elf --verify enable
+```
+
+For UPDI targets, PyAvrOCD documents `readbeforewrite` as the default load mode
+and notes that timers are frozen when the CPU is stopped. Keep both facts in
+mind when timing-sensitive code behaves differently under debug.
+
+#### Persistent Attach
+
+The normal teaching workflow is a fresh session:
+
+1. rebuild the ELF
+2. restart PyAvrOCD
+3. connect GDB
+4. run `load`
+5. set breakpoints by symbol
+
+For bugs that appear only after the program has been running for a while, you
+may want to leave the target in debug mode and attach later. Before leaving the
+first GDB session:
+
+```gdb
+monitor atexit stay
+```
+
+Later, restart PyAvrOCD with attach mode:
+
+```bash
+pyavrocd -d attiny3217 -i updi -t nedbg -p 2000 --attach
+```
+
+Then reconnect:
+
+```gdb
+target remote :2000
+```
+
+Use attach mode deliberately. It is useful when you need it, but it is a poor
+default for examples because it preserves target state that a beginner may not
+remember creating.
+
+#### Troubleshooting PyAvrOCD Sessions
+
+If the server does not start:
+
+- Confirm the board is attached by USB and powered.
+- Confirm no other program is using the debug probe.
+- On Linux, check udev rules and user permissions.
+- If several probes are attached, specify `--tool nedbg` and, if needed,
+  `--usbsn`.
+- Use `--verbose debug` and read the first critical error.
+- Try `--reboot-debugger` if the probe appears stuck.
+
+If GDB cannot connect:
+
+- Confirm PyAvrOCD is still running.
+- Confirm the port number in `target remote :PORT` matches `--port`.
+- Use a different port if the old one is still busy.
+- Start GDB with `--nx` once to rule out startup-script effects.
+
+If breakpoints do not hit:
+
+- Run `load` after every rebuild.
+- Use `info address label` and `disassemble /r label` to confirm the symbol.
+- Break at named labels, not guessed numeric addresses.
+- Avoid `-mrelax` while debugging.
+- If a reset happens while running, set breakpoints again.
+- If needed, try `monitor breakpoints hardware`.
+
+If stepping or timing looks wrong:
+
+- Remember that stopped debugging changes timing.
+- Do not single-step timing-critical peripheral sequences as proof of real-time
+  behavior.
+- On UPDI targets, timers are frozen while the CPU is stopped.
+- Use GPIO marks, USART output, a logic analyzer, or an oscilloscope for timing
+  evidence.
+
+If the image looks wrong:
+
+- Rebuild the ELF.
+- Restart PyAvrOCD.
+- Reconnect GDB.
+- Run `load`.
+- Use `compare-sections` if your GDB/target combination supports it.
+- Confirm with `avr-objdump -d -S gdb_demo.elf`.
+
+#### A Repeatable Debug Script
+
+You can put the GDB side of the session in a small command file, for example
+`gdb_demo.gdb`:
+
+```gdb
+set pagination off
+set radix 16
+set disassemble-next-line on
+display/i $pc
+
+target remote :2000
+load
+break main
+break sum_loop
+break break_here
+continue
+```
+
+Then start the server:
+
+```bash
+pyavrocd -d attiny3217 -i updi -t nedbg -p 2000 -e gdb_demo.elf
+```
+
+And start GDB:
+
+```bash
+avr-gdb --nx -x gdb_demo.gdb gdb_demo.elf
+```
+
+This makes the debug setup repeatable. If the script stops working, inspect the
+server output and the first failing GDB command before changing the assembly.
+
 ---
 
 ## Core GDB Commands for Assembly
@@ -686,6 +1034,11 @@ The companion file `src/gdb_demo.S` is intentionally small. It:
 - stores the result in SRAM
 - stops at a named debug label
 
+The flash table is deliberately placed after the halt loop in `.text`, not
+immediately after the reset vector. This example still installs only the reset
+vector because interrupts remain disabled, but the table is no longer sitting
+where a reader would expect interrupt-vector code.
+
 Build it from this chapter directory:
 
 ```bash
@@ -703,7 +1056,7 @@ avr-nm -n gdb_demo.elf
 avr-objdump -d -S gdb_demo.elf
 ```
 
-Start GDB:
+For static inspection, start GDB:
 
 ```bash
 avr-gdb --nx gdb_demo.elf
@@ -725,10 +1078,30 @@ info files
 disassemble /r main
 ```
 
-For hardware confirmation, program the same ELF-derived HEX image to the
-ATtiny3217 Curiosity Nano through its on-board debugger, then use the board's
-debugger-backed observation paths: breakpoints, register/memory views, the CDC
-serial port on USART0, and debug GPIO pins.
+For hardware confirmation, start PyAvrOCD in one terminal:
+
+```bash
+pyavrocd -d attiny3217 -i updi -t nedbg -p 2000 -e gdb_demo.elf
+```
+
+Then connect from GDB in a second terminal and load the ELF into target flash:
+
+```gdb
+target remote :2000
+load
+break main
+break sum_loop
+break break_here
+continue
+```
+
+The `load` command programs the target through the on-board debugger. If you
+also need a standalone HEX file for a separate programming tool, generate it
+explicitly:
+
+```bash
+avr-objcopy -O ihex gdb_demo.elf gdb_demo.hex
+```
 
 At `sum_loop`, step one instruction at a time:
 
@@ -858,6 +1231,10 @@ Facts in this chapter are based on:
   debugger strap disconnection and the warning that cutting the straps disables
   programming, debugging, virtual serial port, and data streaming for the
   on-board ATtiny3217.
+- PyAvrOCD documentation for its role as an AVR GDB server, support for
+  Curiosity Nano on-board nEDBG probes, command-line options such as `--device`,
+  `--interface`, `--tool`, and `--port`, and the `avr-gdb` remote debugging
+  flow through `target remote`.
 - The local GDB 17.2 manual for `stepi`, `nexti`, `x/i`, `display/i $pc`,
   `info registers`, and `hook-stop`.
 - The local Red Hat GDB tutorial PDF for practical startup-script behavior,

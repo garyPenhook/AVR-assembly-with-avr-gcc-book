@@ -119,7 +119,7 @@ after_signed:
     eor     r16, r17            ; r16 = 0b00000111
 
     /* ── CLR: clear register (EOR with self) ─────────────────────────────
-     * clr Rd is a pseudo-instruction for eor Rd, Rd.  Z=1, others 0.   */
+     * clr Rd is a pseudo-instruction for eor Rd, Rd.  Z=1; C is unchanged. */
     clr     r16                 ; r16 = 0, Z=1
 
     /* ── TST: test register (AND with self) ──────────────────────────────

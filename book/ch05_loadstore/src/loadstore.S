@@ -12,12 +12,6 @@
 
 .equ    TABLE_LEN, 8
 
-/* ── Flash table ─────────────────────────────────────────────────────── */
-.section .rodata
-
-powers_of_two:
-    .byte 1, 2, 4, 8, 16, 32, 64, 128
-
 /* ── SRAM buffers ────────────────────────────────────────────────────── */
 .section .bss
 
@@ -119,3 +113,10 @@ walk_backward:
 
 halt:
     rjmp halt
+
+    /* Keep this table after executable code so it does not occupy interrupt
+     * vector slots.  The label is a program-memory byte address for LPM; add
+     * MAPPED_PROGMEM_START when reading the same bytes through LD. */
+    .balign 2
+powers_of_two:
+    .byte 1, 2, 4, 8, 16, 32, 64, 128

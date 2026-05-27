@@ -19,11 +19,6 @@
 __vectors:
     jmp     main
 
-.section .progmem.data, "a", @progbits
-.global table_bytes
-table_bytes:
-    .byte   0x11, 0x22, 0x33, 0x44
-
 .section .bss
 .global sum_result
 sum_result:
@@ -66,3 +61,7 @@ break_here:
 halt:
     rjmp    halt
 
+.balign 2
+.global table_bytes
+table_bytes:
+    .byte   0x11, 0x22, 0x33, 0x44
