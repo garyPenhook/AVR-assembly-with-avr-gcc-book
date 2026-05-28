@@ -35,13 +35,15 @@ simple_add:
  * ════════════════════════════════════════════════════════════════════════ */
 .global save_restore
 save_restore:
-    push r14            ; save call-preserved regs we will use
+    push r14                    ; save call-preserved regs we will use
     push r15
-    ; ... routine body uses r14, r15 freely ...
-    ldi  r16, 0xAA      ; r16 = scratch
-    mov  r14, r16       ; r14 was saved above
-    ; ... more work ...
-    pop  r15            ; restore in reverse push order
+    ldi  r16, 0xAA
+    mov  r14, r16               ; r14 = 0xAA (free to clobber — it's saved)
+    ldi  r16, 0x55
+    mov  r15, r16               ; r15 = 0x55
+    add  r14, r15               ; r14 = 0xFF — do real work in saved regs
+    mov  r24, r14               ; return value in r24
+    pop  r15                    ; restore in reverse push order
     pop  r14
     ret
 

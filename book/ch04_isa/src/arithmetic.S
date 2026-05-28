@@ -73,11 +73,11 @@ main:
     breq    equal               ; taken: Z=1 → values are equal
 
 not_equal:
-    nop                         ; placeholder
+    ldi     r18, 0              ; r18 = 0 — values differ
     rjmp    after_compare
 
 equal:
-    nop                         ; placeholder
+    ldi     r18, 1              ; r18 = 1 — values match
 
 after_compare:
 
