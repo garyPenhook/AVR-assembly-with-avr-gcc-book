@@ -174,7 +174,7 @@ uses 225 kbps by default.
 
 ## UPDI Enable Sequences
 
-UPDI must be enabled before communication can begin. There are three methods.
+UPDI must be enabled before communication can begin. There are two methods.
 
 ### Standard Enable (RSTPINCFG = 0x1)
 
@@ -221,7 +221,7 @@ regardless of fuse settings. This is the only recovery path from GPIO mode.
 Step    Action
 ──────────────────────────────────────────────────────────
 1       Reset the device (recommended before HV sequence).
-2       Apply HV ramp to PA0: rise to 12 V in 10–200 µs.
+2       Apply 12 V pulse to PA0; hold for 100 µs–1 ms, then tri-state.
 3       Hold HV for ≥ 200 µs, ≤ 14 ms.
 4       Remove HV (tri-state).
 5       Programmer drives PA0 LOW to release UPDI reset.
@@ -303,10 +303,10 @@ UPDI → Programmer:  (guard time)  [data_byte]
 If Size A = 2 bytes, addr is 2 bytes (covers tinyAVR ≤ 64 KB data space).
 ```
 
-Example: read `PORTB.IN` at data address `0x0426`:
+Example: read `PORTB.IN` at data address `0x0428` (PORTB base `0x0420` + IN offset `0x08`):
 
 ```
-Send: 0x55 0x04 0x26 0x04
+Send: 0x55 0x04 0x28 0x04
 Recv: <value of PORTB.IN>
 ```
 
@@ -430,13 +430,12 @@ The System Information Block (SIB) identifies the device to the programmer:
 ```
 Byte Range   Field           Content
 ──────────────────────────────────────────────────
-[0–5]        Family_ID       ASCII, e.g. "tinyAVR"
-[6]          Reserved        —
-[7]          NVM_VERSION     NVM controller version
-[8–10]       OCD_VERSION     OCD controller version
-[11–13]      Reserved        —
-[14]         DBG_OSC_FREQ    Debug oscillator frequency class
-[15]         Reserved        —
+[0–6]        Family_ID       ASCII, e.g. "tinyAVR" (7 bytes)
+[7]          Reserved        —
+[8–10]       NVM_VERSION     NVM controller version (3 bytes)
+[11–13]      OCD_VERSION     OCD controller version (3 bytes)
+[14]         Reserved        —
+[15]         DBG_OSC_FREQ    Debug oscillator frequency class
 ```
 
 ---
@@ -1136,8 +1135,8 @@ UPDI is a single-wire, half-duplex UART that replaces ISP on all modern AVR
 devices. It provides:
 
 - Full read/write access to every byte in the device's memory map.
-- A key mechanism that unlocks chip erase, NVM programming, and user row
-  programming — the only three operations that modify persistent storage.
+- A key mechanism that unlocks three UPDI-initiated protected operations:
+  chip erase, NVM programming, and user row write.
 - Built-in on-chip debugging (OCD) on the same pin.
 - Hardware-enforced protection via lock bits, bypassed only by chip erase.
 - An HV override that can restore access even when the UPDI pin has been
