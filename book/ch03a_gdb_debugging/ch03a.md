@@ -459,52 +459,6 @@ continue
 Do not add `monitor debugwire enable` for the ATtiny3217 Curiosity Nano. That
 command is for debugWIRE targets. The ATtiny3217 uses UPDI.
 
-#### Monitor Commands
-
-GDB commands control GDB. `monitor` commands are passed through GDB to
-PyAvrOCD. They control server behavior.
-
-Useful commands for this book:
-
-| Command | Use |
-|---------|-----|
-| `monitor help` | Print PyAvrOCD monitor help. |
-| `monitor info` | Show target and debugger state. |
-| `monitor version` | Show the PyAvrOCD version. |
-| `monitor reset` | Reset the MCU. |
-| `monitor breakpoints all` | Permit both software and hardware breakpoints (default). |
-| `monitor breakpoints hardware` | Use only hardware breakpoints. |
-| `monitor breakpoints software` | Use only software breakpoints. |
-| `monitor load readbeforewrite` | Compare flash pages and skip unchanged writes when loading (default for UPDI). |
-| `monitor load writeonly` | Write flash pages without comparing first. |
-| `monitor load noinitialload` | Skip the first load when the exact image is already present. |
-| `monitor erasebeforeload` | Erase flash before loading. Default on JTAG targets; ignored on debugWIRE. |
-| `monitor verify enable` | Verify flash after loading pages (enabled by default). |
-| `monitor verify disable` | Disable flash verification. |
-| `monitor timer run` | Let timers continue running while the CPU is stopped (default). |
-| `monitor timer freeze` | Freeze timers when the CPU is stopped. |
-| `monitor atexit stay` | Leave the target in debug mode when the server exits. |
-| `monitor atexit leave` | Leave debug mode on exit where the interface supports it. |
-| `monitor singlestep safe` | Protect single stepping against interrupt surprises (default). |
-| `monitor singlestep interruptible` | Allow interrupts to affect single stepping. |
-| `monitor rangestepping enable` | Enable GDB range-stepping support (enabled by default). |
-| `monitor caching enable` | Cache executable sections in PyAvrOCD (enabled by default). |
-| `monitor onlywhenloaded enable` | Require a program to be loaded before execution is permitted (enabled by default). |
-
-Most monitor settings can also be supplied as PyAvrOCD command-line options.
-For example:
-
-```bash
-pyavrocd -d attiny3217 -i updi -t nedbg -e gdb_demo.elf --verify enable
-```
-
-For UPDI targets, PyAvrOCD uses `readbeforewrite` as the default load mode.
-Unlike some other debug interfaces, PyAvrOCD defaults to letting timers continue
-running while the CPU is stopped (`monitor timer run` is the default). If you
-want timers frozen during single-stepping, use `monitor timer freeze`. Keep
-these defaults in mind when timing-sensitive code behaves differently under
-debug.
-
 #### Persistent Attach
 
 The normal teaching workflow is a fresh session:
