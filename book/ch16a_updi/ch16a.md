@@ -73,11 +73,6 @@ Other            Reserved
 Factory default: `SYSCFG0` resets to `0xC4`, placing `RSTPINCFG[1:0]` at `0b01`
 (0x1 = UPDI mode). A freshly manufactured ATtiny3217 always comes up in UPDI mode.
 
-The factory default is `0x1` — PA0 is a UPDI-only pin. Changing
-`RSTPINCFG` to `0x0` disables UPDI and frees PA0 as GPIO, but then the
-only way back in is a high-voltage pulse (12 V) on that pin. See the
-High-Voltage Override section below.
-
 The UPDI pin has a constant internal pull-up when UPDI is active. The protocol
 is **half-duplex, single-wire, asynchronous UART** with:
 
@@ -181,16 +176,18 @@ uses 225 kbps by default.
 
 UPDI must be enabled before communication can begin. There are three methods.
 
-### Method 1: One-Wire Enable (Standard)
+### Standard Enable (RSTPINCFG = 0x1)
 
-Used when `RSTPINCFG = 0x1` (factory default).
+When `RSTPINCFG = 0x1` (factory default), PA0 is dedicated to UPDI and
+carries a constant pull-up. The programmer drives the pin low for at least
+200 ns to trigger the enable handshake:
 
 ```
 Programmer          UPDI Pin             UPDI State
 ──────────────────────────────────────────────────────────────────
   Pull-up active                         Pin held high by pull-up
   Drive pin LOW                          Edge detector triggers
-  (hold > 200 ns)
+  (hold ≥ 200 ns)
   Release pin (Hi-Z)                     UPDI holds low while clock starts
                      ← UPDI releases →
                      Pin goes HIGH        Clock ready, UPDI waiting
@@ -200,32 +197,25 @@ Programmer          UPDI Pin             UPDI State
   First instruction                      Ready to accept instructions
 ```
 
-If the programmer does not send the SYNCH within 16.4 ms (65536 UPDI clock
-cycles at 4 MHz), UPDI disables itself and the sequence must restart.
+If SYNCH is not sent within 16.4 ms (65536 UPDI clock cycles at 4 MHz),
+UPDI disables itself and the sequence must restart.
 
-Timing parameters:
+Timing parameters (from Electrical Characteristics, §36.21):
 
 ```
-Symbol    Description                              Min      Max
-────────────────────────────────────────────────────────────────
-TRES      BREAK/Handshake on RESET pin              10 µs   200 µs
-TUPDI     UPDI holds pin low (clock startup)        10 µs   200 µs
-TDeb0     Programmer drives pin low                200 ns     1 µs
-TDebZ     Time from pin-high to first SYNCH start  200 ns    14 ms
+Symbol    Description                              Min      Max    Unit
+────────────────────────────────────────────────────────────────────────
+TRES      Duration of Handshake/BREAK              10       200    µs
+TUPDI     Duration of UPDI.txd = 0                 10       200    µs
+TDeb0     Duration of Debugger.txd = 0            200 ns     1     µs
+TDebZ     Duration of Debugger.txd = z            200     14000    µs
 ```
 
-### Method 2: Fuse Override (RSTPINCFG = 0x1)
+### High-Voltage (HV) Override
 
-This is the same as Method 1. When `RSTPINCFG = 0x1`, the RESET pin is
-permanently overridden to UPDI. The sequence is identical to the one-wire
-enable above.
-
-### Method 3: High-Voltage (HV) Override
-
-When `RSTPINCFG = 0x0`, PA0 is a GPIO and UPDI is inaccessible without HV.
-Applying a 12 V pulse to PA0 forces the pin back into UPDI mode regardless
-of fuse settings. This is the only recovery path after setting
-`RSTPINCFG = 0x0`.
+When `RSTPINCFG = 0x0` (GPIO) or `0x2` (RESET), UPDI is inaccessible
+without HV. Applying a 12 V pulse to PA0 switches the pin to UPDI mode
+regardless of fuse settings. This is the only recovery path from GPIO mode.
 
 ```
 Step    Action
@@ -247,14 +237,16 @@ until a Power-on Reset (POR). Issuing UPDIDIS does not restore PA0 to GPIO —
 only POR does. This means HV enables temporary UPDI access without
 permanently changing the fuse.
 
-Timing for the HV pulse:
+HV-specific timing (from figure 33-6 in the datasheet):
 
 ```
-Symbol      Description                        Min      Max
-────────────────────────────────────────────────────────────
-THV_ramp    HV ramp time (0 V to HV)           1 µs     10 µs
-TRES        Hold HV high                      10 µs    200 µs
-TDeb0       Programmer drives pin LOW         200 ns     1 µs
+Symbol      Description                          Min      Max    Unit
+──────────────────────────────────────────────────────────────────────
+THV_ramp    HV rise time                          10       4000   ns/µs (10 ns–4 ms)
+TRES        HV pulse hold duration                10        200   µs
+TUPDI       UPDI holds pin low after HV edge      10        200   µs
+TDeb0       Programmer drives pin LOW            200 ns      1    µs
+TDebZ       Pin-high to first SYNCH start        200      14000   µs
 ```
 
 ---
@@ -395,11 +387,11 @@ Maximum repeat count: 255 (giving 256 total executions). Only LD and ST
 with pointer post-increment (`*(ptr++)`) make sense with REPEAT. To abort
 a REPEAT in progress, send a BREAK.
 
-Example: write 128 bytes to the flash page buffer starting at `0x3E00`
-(mapped flash write address for the ATtiny3217):
+Example: write 128 bytes to the flash page buffer for page 0, starting at
+`0x8000` (mapped flash start in data space on the ATtiny3217):
 
 ```
-1. SYNCH + ST(ptr) + 0x00 + 0x3E  → ACK   (set pointer to 0x3E00)
+1. SYNCH + ST(ptr) + 0x00 + 0x80  → ACK   (set pointer to 0x8000)
 2. SYNCH + REPEAT  + 0x7F                  (repeat 127 more times = 128 total)
 3. SYNCH + ST(*(ptr++)) + byte_0 → ACK
    byte_1 → ACK
@@ -457,8 +449,9 @@ perform operation → reset again.
 
 ### Chip Erase
 
-Chip erase clears all flash, EEPROM, user row, and lock bits. It is the only
-way to unlock a locked device.
+Chip erase clears all flash, EEPROM, and lock bits. The User Row is
+**not** affected by chip erase — its content is preserved (NVMCTRL §9.3.1.3).
+Chip erase is the only way to unlock a locked device.
 
 ```
 Step  Action
@@ -468,7 +461,11 @@ Step  Action
 3.    STCS ASI_RESET_REQ ← 0x59   (assert system reset)
 4.    STCS ASI_RESET_REQ ← 0x00   (release system reset)
 5.    LDCS ASI_SYS_STATUS → poll until LOCKSTATUS = 0.
-6.    LDCS ASI_SYS_STATUS → check ERASE_FAILED = 0.
+6.    (Optional) LDCS ASI_SYS_STATUS → check ERASE_FAILED = 0 if present.
+      Note: the ERASE_FAILED bit appears in the chip erase procedure in the
+      datasheet text (§33.3.8.1) but is absent from the ASI_SYS_STATUS
+      register description. Checking LOCKSTATUS = 0 (step 5) is the
+      reliable completion test.
 7.    Done. Device is unlocked; full UPDI bus access is restored.
 ```
 
@@ -512,8 +509,8 @@ Step  Action
 2.    (Optional) LDCS ASI_KEY_STATUS → confirm UROWWRITE bit = 1.
 3.    STCS ASI_RESET_REQ ← 0x59 / 0x00  (reset cycle)
 4.    LDCS ASI_SYS_STATUS → poll until UROWPROG = 1.
-5.    Write 64 bytes of data to the first 64 bytes of RAM (address 0x3E00
-      on the ATtiny3217) using ST + REPEAT.
+5.    Write 64 bytes of data to the first 64 bytes of RAM (address 0x3800,
+      the start of SRAM on the ATtiny3217) using ST + REPEAT.
       (Only the first 64 bytes of RAM are accessible; writes outside this
        range are silently ignored.)
 6.    STCS ASI_SYS_CTRLA ← UROWWRITE_FINAL = 1  (commit RAM → user row)
@@ -971,13 +968,13 @@ nEDBG. The GDB + avarice flow described in Chapter 3A uses this path.
 The following fuses in `FUSE.SYSCFG0` directly control UPDI accessibility:
 
 ```
-FUSE Address: 0x1284  (ATtiny3217 fuse layout, byte 5 = SYSCFG0)
+SYSCFG0 address: 0x1285  (FUSE peripheral base 0x1280 + offset 0x05)
 
-Bits [3:2] = RSTPINCFG[1:0]
+SYSCFG0 bits [3:2] = RSTPINCFG[1:0]
 ──────────────────────────────────────────────────────────────────────
-0x0   PA0 = GPIO. UPDI completely inaccessible. HV required to recover.
-0x1   PA0 = UPDI (default). No external reset. Debugger connects freely.
-0x2   PA0 = RESET (GPIO-active, also UPDI accessible via BREAK+SYNCH).
+0x0   PA0 = GPIO.   UPDI completely inaccessible. HV required to recover.
+0x1   PA0 = UPDI  (default). No external reset. Debugger connects freely.
+0x2   PA0 = RESET.  External reset active. UPDI inaccessible without HV.
 0x3   Reserved.
 ```
 
@@ -998,11 +995,12 @@ Fuse Index   Name       Relevant Fields
 0            WDTCFG     Watchdog config
 1            BODCFG     Brown-out detector config
 2            OSCCFG     Clock source (0x01=16 MHz, 0x02=20 MHz)
+(no index 3)
 4            TCD0CFG    TCD0 config
-5            SYSCFG0    RSTPINCFG[3:2], CRC check, EESAVE
-6            SYSCFG1    SUT (startup time) [2:0]
+5            SYSCFG0    RSTPINCFG (bits[3:2]), CRCSRC (bits[7:6]), EESAVE (bit 0)
+6            SYSCFG1    SUT startup time (bits[2:0])
 7            APPEND     Application code end (× 256 bytes)
-8            BOOTEND     Boot section end (× 256 bytes)
+8            BOOTEND    Boot section end (× 256 bytes)
 ```
 
 ---
@@ -1097,9 +1095,9 @@ from scratch using SerialUPDI. Values are hexadecimal.
    Send: 55 44 00 10 03   (STS, 2-byte addr, 1-byte data; addr=NVMCTRL.CTRLA)
    Recv: 40 40             (two ACKs)
 
-9. Set pointer to mapped flash page buffer (0x3E00 on ATtiny3217):
-   SYNCH + ST(ptr) ← 0x3E00:
-   Send: 55 6A 00 3E       (ST ptr, 2-byte address 0x3E00)
+9. Set pointer to mapped flash page 0 (0x8000 = mapped flash start):
+   SYNCH + ST(ptr) ← 0x8000:
+   Send: 55 6A 00 80       (ST ptr, 2-byte address 0x8000)
    Recv: 40                (ACK)
 
 10. SYNCH + REPEAT 127 (128 total writes):
@@ -1112,8 +1110,10 @@ from scratch using SerialUPDI. Values are hexadecimal.
     Recv: 40
     ... (continue for all 128 bytes)
 
-12. SYNCH + LDCS ASI_SYS_STATUS (poll until NVMPROG=1 again, write done):
-    Poll until ACC layer is idle.
+12. Poll NVMCTRL.STATUS until FBUSY = 0 (write+erase complete):
+    SYNCH + LDS addr=0x1002 (NVMCTRL.STATUS):
+    Send: 55 04 02 10
+    Recv: <status>  — poll until bit 0 (FBUSY) = 0
 
 13. STCS ASI_RESET_REQ ← 0x59 / 0x00 (final reset):
     Send: 55 C8 59
