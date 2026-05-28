@@ -1,4 +1,4 @@
-# Chapter 16A: UPDI — The Unified Program and Debug Interface {.unnumbered}
+# UPDI — The Unified Program and Debug Interface
 
 Every program you write in this book eventually ends up on the ATtiny3217 as
 bytes in flash. UPDI is the hardware interface that puts those bytes there. It
