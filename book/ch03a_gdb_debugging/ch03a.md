@@ -275,10 +275,18 @@ This means there are three separate pieces to debug when a session fails:
 
 #### Install and Sanity Check
 
-The PyAvrOCD documentation describes several install paths: release archives,
-Python package installation with `pipx` or `pip`, and running from the GitHub
-repository. Any of those are fine as long as `pyavrocd` and `avr-gdb` are
-available from the shell you use for the book examples.
+PyAvrOCD supports several install paths. The recommended method is `pipx`, which
+isolates the package in its own Python environment:
+
+```bash
+pipx install pyavrocd
+pipx ensurepath
+```
+
+If `pipx` is not available, `pip install pyavrocd` also works. Pre-compiled
+binary archives are published on the GitHub releases page and can be extracted
+directly to `~/.local/bin/`. Any of those paths are fine as long as `pyavrocd`
+and `avr-gdb` are available from the shell you use for the book examples.
 
 Check the tools first:
 
@@ -289,9 +297,11 @@ avr-gdb --version
 ```
 
 On Linux, PyAvrOCD may need udev rules before a normal user can access
-Microchip debug probes. If the board is plugged in and PyAvrOCD reports that no
-compatible tool was discovered, fix host USB permissions before changing code,
-fuses, or wiring.
+Microchip debug probes. Download the rules file from
+`https://pyavrocd.io/99-edbg-debuggers.rules` and copy it to
+`/etc/udev/rules.d/`, then replug the board. If the board is plugged in and
+PyAvrOCD still reports that no compatible tool was discovered, fix host USB
+permissions before changing code, fuses, or wiring.
 
 #### Curiosity Nano Setup
 
@@ -325,10 +335,12 @@ avr-gcc -mmcu=attiny3217 -nostartfiles -g3 \
 
 For C or mixed C/assembly projects, PyAvrOCD's documentation recommends
 debug-friendly compiler settings: use debug information, prefer `-Og` while
-debugging, avoid `-flto` where possible, and do not use `-mrelax` because it can
-distort line information. For pure assembly, the equivalent discipline is:
-keep named labels, keep line information, and do not let the linker rewrite
-jump layout while you are matching source, symbols, and addresses.
+debugging, and avoid `-flto` and `-mrelax`. Passing `-e gdb_demo.elf` is not
+just advisory: PyAvrOCD inspects the ELF and actively rejects files compiled
+with `-mrelax` because that option garbles line-number information. For pure
+assembly, the equivalent discipline is: keep named labels, keep line
+information, and do not let the linker rewrite jump layout while you are
+matching source, symbols, and addresses.
 
 #### Start the PyAvrOCD Server
 
@@ -345,15 +357,19 @@ The options used here are deliberately explicit:
 
 | Option | Long form | Meaning |
 |--------|-----------|---------|
-| `-d attiny3217` | `--device attiny3217` | Selects the target MCU. This is the required option. |
+| `-d attiny3217` | `--device attiny3217` | Selects the target MCU. This is the only mandatory option. Use `-d ?` to list all supported devices. |
 | `-i updi` | `--interface updi` | Selects UPDI. This is the ATtiny3217 debug interface. |
-| `-t nedbg` | `--tool nedbg` | Selects the Curiosity Nano on-board debugger. |
+| `-t nedbg` | `--tool nedbg` | Selects the Curiosity Nano on-board debugger. Required when multiple probes are attached. |
 | `-p 2000` | `--port 2000` | Selects the TCP port where GDB connects. Port 2000 is the default. |
-| `-e gdb_demo.elf` | `--elf-file gdb_demo.elf` | Lets PyAvrOCD inspect the ELF and reject known-bad debug setups such as `-mrelax`. |
+| `-e gdb_demo.elf` | `--elf-file gdb_demo.elf` | Lets PyAvrOCD inspect the ELF and actively reject files compiled with `-mrelax`. |
+| `-v debug` | `--verbose debug` | Sets log verbosity. Levels: `critical`, `error`, `warning`, `info` (default), `debug`, `all`. |
+| (none) | `--reboot-debugger` | Reboots the probe before the session. Helps when the probe appears stuck. |
+| `-a` | `--attach` | Reconnects without resetting the target. Requires a prior session ended with `monitor atexit stay`. |
+| `-C 750` | `--comm-speed 750` | UPDI communication speed in kbps. Default 750. Avoid values at or below 400 at 16 MHz. |
 
-Only `-d` is mandatory in the general PyAvrOCD command line. This book keeps
-the other options visible because visible choices are easier to audit when
-several probes, ports, or target boards are attached.
+Only `-d` is mandatory. This book keeps the other options visible because
+visible choices are easier to audit when several probes, ports, or target
+boards are attached.
 
 Useful variations:
 
@@ -456,18 +472,24 @@ Useful commands for this book:
 | `monitor info` | Show target and debugger state. |
 | `monitor version` | Show the PyAvrOCD version. |
 | `monitor reset` | Reset the MCU. |
-| `monitor breakpoints all` | Permit both software and hardware breakpoints. |
+| `monitor breakpoints all` | Permit both software and hardware breakpoints (default). |
 | `monitor breakpoints hardware` | Use only hardware breakpoints. |
 | `monitor breakpoints software` | Use only software breakpoints. |
-| `monitor load readbeforewrite` | Compare flash pages and skip unchanged writes when loading. |
+| `monitor load readbeforewrite` | Compare flash pages and skip unchanged writes when loading (default for UPDI). |
 | `monitor load writeonly` | Write flash pages without comparing first. |
 | `monitor load noinitialload` | Skip the first load when the exact image is already present. |
-| `monitor verify enable` | Verify flash after loading pages. |
+| `monitor erasebeforeload` | Erase flash before loading. Default on JTAG targets; ignored on debugWIRE. |
+| `monitor verify enable` | Verify flash after loading pages (enabled by default). |
 | `monitor verify disable` | Disable flash verification. |
+| `monitor timer run` | Let timers continue running while the CPU is stopped (default). |
+| `monitor timer freeze` | Freeze timers when the CPU is stopped. |
 | `monitor atexit stay` | Leave the target in debug mode when the server exits. |
 | `monitor atexit leave` | Leave debug mode on exit where the interface supports it. |
-| `monitor singlestep safe` | Protect single stepping against interrupt surprises. |
+| `monitor singlestep safe` | Protect single stepping against interrupt surprises (default). |
 | `monitor singlestep interruptible` | Allow interrupts to affect single stepping. |
+| `monitor rangestepping enable` | Enable GDB range-stepping support (enabled by default). |
+| `monitor caching enable` | Cache executable sections in PyAvrOCD (enabled by default). |
+| `monitor onlywhenloaded enable` | Require a program to be loaded before execution is permitted (enabled by default). |
 
 Most monitor settings can also be supplied as PyAvrOCD command-line options.
 For example:
@@ -476,9 +498,12 @@ For example:
 pyavrocd -d attiny3217 -i updi -t nedbg -e gdb_demo.elf --verify enable
 ```
 
-For UPDI targets, PyAvrOCD documents `readbeforewrite` as the default load mode
-and notes that timers are frozen when the CPU is stopped. Keep both facts in
-mind when timing-sensitive code behaves differently under debug.
+For UPDI targets, PyAvrOCD uses `readbeforewrite` as the default load mode.
+Unlike some other debug interfaces, PyAvrOCD defaults to letting timers continue
+running while the CPU is stopped (`monitor timer run` is the default). If you
+want timers frozen during single-stepping, use `monitor timer freeze`. Keep
+these defaults in mind when timing-sensitive code behaves differently under
+debug.
 
 #### Persistent Attach
 
@@ -547,7 +572,7 @@ If stepping or timing looks wrong:
 - Remember that stopped debugging changes timing.
 - Do not single-step timing-critical peripheral sequences as proof of real-time
   behavior.
-- On UPDI targets, timers are frozen while the CPU is stopped.
+- On UPDI targets, timers continue running while the CPU is stopped by default. Use `monitor timer freeze` if you need them stopped.
 - Use GPIO marks, USART output, a logic analyzer, or an oscilloscope for timing
   evidence.
 
@@ -559,6 +584,46 @@ If the image looks wrong:
 - Run `load`.
 - Use `compare-sections` if your GDB/target combination supports it.
 - Confirm with `avr-objdump -d -S gdb_demo.elf`.
+
+If GDB stops with an unexpected signal:
+
+| Signal | Meaning |
+|--------|---------|
+| `SIGHUP` | No OCD connection. The debug probe disconnected or was never enabled. |
+| `SIGILL` | A `BREAK` instruction is at the current location. A software breakpoint was not restored after a previous session ended abruptly. Reflash to fix. |
+| `SIGBUS` | Stack pointer is too low and threatens I/O register space. |
+| `SIGSEGV` | No program is loaded. Use `load`, or set `monitor onlywhenloaded disable` if you intentionally want to run without a loaded image. |
+
+If the MCU behaves strangely after a debug session that ended abruptly (for
+example due to power loss), software breakpoints may not have been restored.
+Reflash the MCU completely to recover a known-good state.
+
+#### Persistent PyAvrOCD Options
+
+If you always use the same set of options, create a file named
+`pyavrocd.options` in the project directory and list arguments there one per
+line using the `@` prefix notation:
+
+```
+@pyavrocd.options
+```
+
+Where `pyavrocd.options` contains, for example:
+
+```text
+--device attiny3217
+--interface updi
+--tool nedbg
+--port 2000
+```
+
+Then invoke PyAvrOCD with just the ELF:
+
+```bash
+pyavrocd @pyavrocd.options -e gdb_demo.elf
+```
+
+This keeps the command short without hiding the choices from version control.
 
 #### A Repeatable Debug Script
 
