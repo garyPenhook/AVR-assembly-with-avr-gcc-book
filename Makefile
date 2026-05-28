@@ -19,6 +19,7 @@ CHAPTERS := \
 	book/ch05b_signed_arith/ch05b.md \
 	book/ch05c_multibyte_arith/ch05c.md \
 	book/ch05d_bit_math/ch05d.md \
+	book/ch05e_fixed_point/ch05e.md \
 	book/ch06_arith/ch06.md \
 	book/ch07_branches/ch07.md \
 	book/ch08_subroutines/ch08.md \
