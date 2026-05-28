@@ -57,19 +57,21 @@ the programmer.
 
 ### The Single UPDI Pin
 
-On the ATtiny3217, UPDI shares its pin with the external RESET function. Pin
-PA0 (physical pin 10 on the 20-SOIC package) is labelled `UPDI/RESET` in the
-datasheet. Which function is active depends on the `RSTPINCFG` bits in
-`FUSE.SYSCFG0`:
+On the ATtiny3217, PA0 is a three-function pin labelled `PA0/RESET/UPDI` in
+the datasheet (physical pin 16 on the 20-SOIC package; pin 23 on the 24-VQFN).
+Which function is active depends on the `RSTPINCFG` bits in `FUSE.SYSCFG0`:
 
 ```
 RSTPINCFG[1:0]   PA0 pin function
 ──────────────────────────────────────
-0x0              GPIO (UPDI disabled; HV override required to re-enable)
-0x1              UPDI (default from factory; RESET function replaced)
-0x2              RESET (resets on low level; UPDI still accessible)
-0x3              Reserved
+0x0              GPIO  — PA0 is general-purpose I/O; UPDI inaccessible without HV
+0x1              UPDI  — factory default; UPDI takes over the pin
+0x2              RESET — external reset input; UPDI inaccessible without HV
+Other            Reserved
 ```
+
+Factory default: `SYSCFG0` resets to `0xC4`, placing `RSTPINCFG[1:0]` at `0b01`
+(0x1 = UPDI mode). A freshly manufactured ATtiny3217 always comes up in UPDI mode.
 
 The factory default is `0x1` — PA0 is a UPDI-only pin. Changing
 `RSTPINCFG` to `0x0` disables UPDI and frees PA0 as GPIO, but then the
