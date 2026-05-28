@@ -1,7 +1,7 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
 # Book revision label (for release notes / tags only; the repo ships one PDF).
-PDF_VERSION := v1.9
+PDF_VERSION := v1.4.1
 PDF_OUTPUT := $(PDF_DIR)/$(PDF_NAME).pdf
 PDF_LOG := $(PDF_DIR)/build.log
 
@@ -9,11 +9,16 @@ SHELL := /bin/bash
 
 CHAPTERS := \
 	book/ch01_intro/ch01.md \
+	book/ch01a_number_systems/ch01a.md \
 	book/ch02_arch/ch02.md \
 	book/ch03_syntax/ch03.md \
 	book/ch03a_gdb_debugging/ch03a.md \
 	book/ch04_isa/ch04.md \
 	book/ch05_loadstore/ch05.md \
+	book/ch05a_unsigned_arith/ch05a.md \
+	book/ch05b_signed_arith/ch05b.md \
+	book/ch05c_multibyte_arith/ch05c.md \
+	book/ch05d_bit_math/ch05d.md \
 	book/ch06_arith/ch06.md \
 	book/ch07_branches/ch07.md \
 	book/ch08_subroutines/ch08.md \

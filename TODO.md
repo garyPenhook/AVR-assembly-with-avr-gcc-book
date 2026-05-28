@@ -2,28 +2,23 @@
 
 ## Math Topics for AVR Assembly
 
-1. Number systems: binary, hex, decimal, and BCD
-2. Unsigned integer arithmetic on 8-bit and 16-bit registers
-3. Signed arithmetic with two's complement and sign extension
-4. Multi-byte addition, subtraction, comparison, and negation
-5. Bit math: masks, shifts, rotates, packing, and field extraction
-6. Fixed-point arithmetic on AVR
-7. Fixed-point formats: Q8.8, Q1.15, and scaling conventions
-8. Rounding, saturation, overflow, and quantization error
-9. Fast multiply and divide techniques
-10. Lookup tables and interpolation
-11. Polynomial approximation with Horner's method
-12. Fast integer square root and vector math
-13. Coordinate transforms and projections
-14. CORDIC for sine, cosine, atan2, and vector rotation
-15. DDS and phase accumulator math
-16. Integer filters for ADC and control
-17. Fixed-point PID math
-18. Calibration math in fixed-point
-19. Timer, prescaler, baud-rate, and PWM scaling math
-20. Modular arithmetic for wraparound counters and phase
-21. BCD and decimal conversion math
-22. Checksums, CRCs, and other integrity math
+1. Fixed-point arithmetic on AVR
+4. Fixed-point formats: Q8.8, Q1.15, and scaling conventions
+5. Rounding, saturation, overflow, and quantization error
+6. Fast multiply and divide techniques
+7. Lookup tables and interpolation
+8. Polynomial approximation with Horner's method
+9. Fast integer square root and vector math
+10. Coordinate transforms and projections
+11. CORDIC for sine, cosine, atan2, and vector rotation
+12. DDS and phase accumulator math
+13. Integer filters for ADC and control
+14. Fixed-point PID math
+15. Calibration math in fixed-point
+16. Timer, prescaler, baud-rate, and PWM scaling math
+17. Modular arithmetic for wraparound counters and phase
+18. BCD and decimal conversion math
+19. Checksums, CRCs, and other integrity math
 
 ## Chapter Roadmap
 
