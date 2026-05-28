@@ -1,7 +1,7 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
 # Book revision label (for release notes / tags only; the repo ships one PDF).
-PDF_VERSION := v1.4.2
+PDF_VERSION := v1.4.3
 PDF_OUTPUT := $(PDF_DIR)/$(PDF_NAME).pdf
 PDF_LOG := $(PDF_DIR)/build.log
 
@@ -35,8 +35,10 @@ CHAPTERS := \
 	book/ch16_bootloader/ch16.md \
 	book/ch17_bitmath/ch17.md \
 	book/ch18_realtime/ch18.md \
+	book/ch18a_dds/ch18a.md \
 	book/ch19_cordic/ch19.md \
 	book/ch20_adc/ch20.md \
+	book/ch20a_filters/ch20a.md \
 	book/appendices/appendix_a_registers.md \
 	book/appendices/appendix_b_instruction_set.md \
 	book/appendices/appendix_c_gas_directives.md \

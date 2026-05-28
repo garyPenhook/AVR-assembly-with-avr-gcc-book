@@ -2,7 +2,6 @@
 
 ## Math Topics for AVR Assembly
 
-1. Fixed-point arithmetic on AVR
 4. Fixed-point formats: Q8.8, Q1.15, and scaling conventions
 5. Rounding, saturation, overflow, and quantization error
 6. Fast multiply and divide techniques
@@ -11,8 +10,6 @@
 9. Fast integer square root and vector math
 10. Coordinate transforms and projections
 11. CORDIC for sine, cosine, atan2, and vector rotation
-12. DDS and phase accumulator math
-13. Integer filters for ADC and control
 14. Fixed-point PID math
 15. Calibration math in fixed-point
 16. Timer, prescaler, baud-rate, and PWM scaling math
