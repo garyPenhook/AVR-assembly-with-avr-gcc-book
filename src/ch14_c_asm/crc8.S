@@ -1,7 +1,16 @@
 /*
- * crc8.S - standalone CRC-8/SMBus demonstration
- * Target: ATtiny3217
+ * crc8.S — standalone CRC-8/SMBus demonstration
+ *           Companion source for Chapter 14: CRC and Data Integrity in Assembly
  *
+ * Covers:
+ *   CRC-8/SMBus algorithm: shift-register with conditional XOR on each bit
+ *   Polynomial 0x07 = x^8 + x^2 + x + 1 (standard SMBus / I2C CRC-8)
+ *   MSB-first processing: ROL shifts next data bit into the carry for testing
+ *   Conditional XOR: LSL CRC into C; branch-skip XOR when bit already 0 (BRCC)
+ *   Nested loops: outer over bytes (r17 counter), inner over 8 bits (r18 counter)
+ *   Result verification: expected 0xE3 for input 01 02 03 04
+ *
+ * Target: ATtiny3217
  * Polynomial: 0x07 (x^8 + x^2 + x + 1)
  * Initial value: 0x00
  * Bit order: MSB first

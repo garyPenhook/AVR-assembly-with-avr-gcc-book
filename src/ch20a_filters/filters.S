@@ -1,4 +1,15 @@
 /* filters.S — Integer filter library for AVR assembly (ATtiny3217)
+ *              Companion source for Chapter 20A: Integer Filters for ADC and Control
+ *
+ * Each routine maps directly to a section in the chapter:
+ *   ema16_k4 / ema24_k8  — "EMA Low-Pass Filter": acc += (new - acc) >> k
+ *   box8_update          — "Box (Moving Average) Filter": circular buffer + sum
+ *   med3_update          — "Median Filter": 3-element compare-and-swap network
+ *   ema2_k5_update       — "Cascaded EMA": two EMA stages for steeper roll-off
+ *   pid_compute_P/I/D    — "PID Control": proportional, integral, derivative terms
+ *   pid_clamp_I          — "Anti-Windup": clamp integral accumulator to prevent saturation
+ *
+ * Fixed-point convention: all filter values are Q8.8 or Q16.8 unless noted.
  *
  * Contains buildable implementations of:
  *   ema16_k4      EMA low-pass, 16-bit accumulator, alpha = 1/16

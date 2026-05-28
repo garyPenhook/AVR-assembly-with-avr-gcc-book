@@ -546,7 +546,8 @@ SBI A, b        ; set bit b in I/O register A
 CBI A, b        ; clear bit b in I/O register A
 ```
 
-2 cycles. A = I/O address 0..31. b = 0..7. No flags affected.
+1 cycle on AVRxt (ATtiny3217); 2 cycles on classic AVRe devices. A = I/O
+address 0..31. b = 0..7. No flags affected.
 
 These are atomic single-bit operations on I/O space — no read-modify-write
 cycle in software is needed:

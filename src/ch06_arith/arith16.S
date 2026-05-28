@@ -1,5 +1,17 @@
 /*
  * arith16.S — 16-bit arithmetic, shifts, MUL family, division on ATtiny3217.
+ *              Companion source for Chapter 6: Arithmetic and Logic: 16-bit and Beyond
+ *
+ * Covers:
+ *   LSL / LSR — logical shift left/right (unsigned multiply/divide by 2)
+ *   ASR — arithmetic shift right (signed divide by 2, sign bit preserved)
+ *   ROL / ROR — rotate through carry for multi-byte shifts
+ *   SWAP — swap nibbles, 1 cycle, no flags (BCD / hex display use)
+ *   MUL — unsigned 8×8 → 16 result in r1:r0; must CLR r1 afterward (ABI)
+ *   MULS — signed 8×8 → 16 (operands r16–r31 only)
+ *   MULSU — signed × unsigned → 16 (used in fixed-point coefficient math)
+ *   div8u_clean — restoring shift-subtract division (no DIV instruction on AVR)
+ *   div16u8 — 16-bit / 8-bit restoring division with 9-bit remainder path
  *
  * Build:
  *   avr-gcc -x assembler-with-cpp -mmcu=attiny3217 -c arith16.S -o arith16.o
@@ -39,9 +51,10 @@ main:
     sub r24, r22
     sbc r25, r23            ; r25:r24 = 700
 
-    /* ── LSL / LSR — logical shift ───────────────────────────────────────
-     * LSL Rd: shift left 1 bit (Rd *= 2), bit 7 → C, 0 → bit 0
-     * LSR Rd: shift right 1 bit (Rd /= 2 unsigned), bit 0 → C, 0→bit7  */
+    /* ── Logical Shift Left / Right: LSL / LSR (Chapter 6) ─────────────
+     * LSL Rd: Rd <<= 1 (unsigned ×2), old bit 7 → C, 0 → bit 0
+     * LSR Rd: Rd >>= 1 (unsigned ÷2), old bit 0 → C, 0 → bit 7
+     * C flag carries the shifted-out bit — used to chain multi-byte shifts. */
     ldi r16, 0b00001010     ; = 10
     lsl r16                 ; r16 = 0b00010100 = 20, C=0
     lsl r16                 ; r16 = 0b00101000 = 40, C=0
@@ -50,17 +63,18 @@ main:
     lsr r16                 ; r16 = 0b01000000 = 64,  C=0
     lsr r16                 ; r16 = 0b00100000 = 32,  C=0
 
-    /* ── ASR — arithmetic (signed) shift right ───────────────────────────
-     * Bit 7 is copied (sign-extended), not replaced with 0.
-     * Divides signed value by 2, rounding toward negative infinity.     */
+    /* ── Arithmetic Shift Right: ASR (Chapter 6) ────────────────────────
+     * Bit 7 is replicated (sign-extended) rather than filled with 0.
+     * Divides a signed value by 2, rounding toward negative infinity.
+     * Use LSR for unsigned divide-by-2, ASR for signed divide-by-2.    */
     ldi r16, 0b10000100     ; = -124 signed
     asr r16                 ; r16 = 0b11000010 = -62, C=0
     asr r16                 ; r16 = 0b11100001 = -31, C=0
 
-    /* ── ROL / ROR — rotate through carry ───────────────────────────────
-     * ROL: bit 7 → C, old C → bit 0
-     * ROR: bit 0 → C, old C → bit 7
-     * Used to shift multi-byte values:                                  */
+    /* ── Rotate Through Carry: ROL / ROR — multi-byte shifts (Chapter 6) ─
+     * ROL: old bit 7 → C, old C → new bit 0  (like LSL but uses carry)
+     * ROR: old bit 0 → C, old C → new bit 7  (like LSR but uses carry)
+     * Chain: LSL low-byte (C = bit7 of low) then ROL high-byte (C→bit0). */
     ldi r17, 0b00000001     ; r17:r16 = 16-bit value 0x0140 = 320
     ldi r16, 0b01000000
     ; Shift r17:r16 left 1 (multiply 320 by 2 = 640)
@@ -81,10 +95,11 @@ main:
     ldi r16, 0xAB
     swap r16                ; r16 = 0xBA
 
-    /* ── MUL — unsigned 8×8 → 16-bit result ─────────────────────────────
-     * Result always lands in r1:r0. 2 cycles.
-     * r1 = high byte, r0 = low byte.
-     * MUST clear r1 after MUL if code assumes r1 = 0 (GCC ABI).       */
+    /* ── MUL: unsigned 8×8 → 16 (Chapter 6) ────────────────────────────
+     * Result always lands in r1:r0 (2 cycles).  r1 = high, r0 = low.
+     * GCC ABI assumes r1 = 0 (the "zero register").  After any MUL, MULS,
+     * or MULSU, clear r1 with CLR before calling a C function or using
+     * r1 as zero.  Forgetting this causes subtle, hard-to-trace bugs.  */
     ldi r16, 12
     ldi r17, 25
     mul r16, r17            ; r1:r0 = 12 * 25 = 300 = 0x012C
@@ -109,8 +124,10 @@ main:
     movw r24, r0
     clr r1
 
-    /* ── 8-bit divide (unsigned): quotient + remainder ───────────────────
-     * AVR has no DIV instruction. Use the shift-subtract algorithm.
+    /* ── Division by shift-subtract (Chapter 6) ─────────────────────────
+     * AVR has no DIV instruction.  Restoring division: shift dividend MSB
+     * into remainder, test remainder >= divisor, subtract and set quotient
+     * bit if so.  Loop once per bit (8 iterations for 8-bit dividend).
      * Routine below: r16 / r17 → quotient r18, remainder r19           */
     ldi r16, 100
     ldi r17, 7

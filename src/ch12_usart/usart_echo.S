@@ -1,13 +1,20 @@
 /*
  * usart_echo.S — USART0 echo terminal
+ *                Companion source for Chapter 12: USART (Serial Communication)
+ *
+ * Covers:
+ *   Baud rate register calculation: BAUD = (f_cpu × 64) / (16 × baud)
+ *   8N1 frame format: CTRLC default 0x03 = async, 8-bit, no parity, 1 stop
+ *   TX pin pre-drive: SBI VPORTB_OUT before TXEN prevents a spurious low glitch
+ *   Polling TX (usart_tx_byte): spin on DREIF before writing TXDATAL
+ *   Flash string TX (usart_tx_string): LPM loop with length counter
+ *   ISR-driven RX (USART0_RXC): reading RXDATAL clears the RXC flag
+ *   RXCIE enable in CTRLA: ISR fires on each received byte, echoes it back
+ *   Mixed polling TX + ISR RX: safe when ISR does not also poll TXDATAL
+ *
  * Target: ATtiny3217 @ 3.333 MHz internal oscillator
  * Baud: 9600 — BAUD register value = (f_cpu / 16 / baud) × 64
  *            = (3333333 / 16 / 9600) × 64 = 1388.9 → 1389 = 0x056D
- *
- * Behaviour:
- *   Polling TX: transmit "Ready\r\n" on startup.
- *   ISR-driven RX: USART0_RXC ISR fires on each received byte.
- *   ISR reads the byte and writes it back (echo), then returns.
  *
  * Pins (ATtiny3217 default USART0 mux):
  *   TXD → PB2   (configure as output)

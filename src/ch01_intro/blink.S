@@ -1,5 +1,12 @@
 /*
  * blink.S — Toggle PA3 (LED0 on ATtiny3217 Curiosity Nano)
+ *           Companion source for Chapter 1: Why Assembly? Toolchain Setup
+ *
+ * Covers:
+ *   First complete assembly program — vector table, stack pointer init, GPIO output
+ *   ATtiny3217 "new-style" PORT peripheral (DIRSET / OUTTGL)
+ *   Software delay loop with nested counters
+ *   avr-as / avr-gcc build pipeline and pymcuprog / avrdude flash commands
  *
  * Build:
  *   avr-as -mmcu=attiny3217 -o blink.o blink.S
@@ -16,9 +23,10 @@
 #include <avr/io.h>
 
 /* ── Vector table ──────────────────────────────────────────────────────────
- * ATtiny3217 reset vector is at byte address 0x0000.
- * We must place a JMP to main here. All other vectors are unused
- * in this example, so we skip past them with .org.
+ * ATtiny3217 reset vector is at byte address 0x0000. We place a JMP to
+ * main there. No other vectors are needed in this example (interrupts
+ * are never enabled), so the .vectors section contains just the reset
+ * entry; the linker places .text immediately after.
  */
 .section .vectors, "ax", @progbits
 .global __vectors
@@ -59,24 +67,24 @@ main:
 /* ── Main loop ─────────────────────────────────────────────────────────── */
 loop:
     /* Toggle PA3.  OUTTGL is an atomic toggle: read-modify-write happens
-     * inside the peripheral, safe even without disabling interrupts.     */
-    ldi     r16, (1 << 3)
+     * inside the peripheral, safe even without disabling interrupts.
+     * r16 already holds 0x08 from the DIRSET store above and the delay
+     * loop below does not touch r16, so no reload is needed here.       */
     sts     PORTA_OUTTGL, r16
 
-    /* ── Software delay (~0.5 s at default 3.33 MHz clock) ─────────────
+    /* ── Software delay (~2 s per toggle at default 3.33 MHz clock) ────
      * ATtiny3217 resets with 20 MHz oscillator divided by 6 → 3.33 MHz.
-     * Each inner loop iteration = 4 cycles (sbiw=2, brne=2 when taken).
-     * We need ~1,665,000 cycles for 0.5 s.
-     * 3 nested loops: 25 × 256 × 256 ≈ 1,638,400 iterations × ~1 cycle
-     * core ≈ close enough for a blink demo.
+     * The inner counter r25:r24 starts at 0; the first SBIW underflows
+     * to 0xFFFF, so the inner loop runs 65,536 iterations before
+     * reaching zero. Each iteration is 4 cycles (sbiw=2, brne=2 taken).
+     * Total: 25 × 65,536 × 4 ≈ 6.55 M cycles ÷ 3.33 MHz ≈ 2 s per toggle.
      *
      * Registers used: r25:r24 (16-bit counter), r19 (outer counter).
-     * r16 is clobbered by the loop but we reload it each toggle anyway.
      */
     ldi     r19, 25                 ; outer loop count
 delay_outer:
-    ldi     r25, 0                  ; } middle = 256 iterations
-    ldi     r24, 0                  ; } inner  = 256 iterations
+    ldi     r25, 0                  ; r25:r24 = 0x0000; first SBIW
+    ldi     r24, 0                  ; underflows to 0xFFFF (65,536 iters)
 delay_inner:
     sbiw    r24, 1                  ; r25:r24 -= 1  (2 cycles)
     brne    delay_inner             ; loop if not zero (2 cycles taken, 1 not)

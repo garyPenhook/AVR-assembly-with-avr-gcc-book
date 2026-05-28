@@ -1,5 +1,12 @@
 /*
- * bench_harness.S - Assembly-only harness for Chapter 15 optimisation examples
+ * bench_harness.S — Assembly-only harness for Chapter 15 optimisation examples
+ *                   Companion source for Chapter 15: Optimisation Techniques
+ *
+ * Covers:
+ *   Links memcpy_naive.S, memcpy_fast.S, lut_sin.S into one ELF for comparison
+ *   avr-nm --size-sort bench.elf — compare symbol sizes (naive vs fast memcpy)
+ *   avr-objdump -d bench.elf — inspect unrolled vs loop instruction sequences
+ *   Benchmark pattern: call each routine, inspect cycle counts with avr-objdump
  *
  * Build from ch15_optimisation/:
  *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -g3 -Wa,--gdwarf-2 \

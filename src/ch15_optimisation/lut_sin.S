@@ -1,3 +1,12 @@
+/* lut_sin.S — 8-bit sine lookup table via 256-entry flash table
+ *              Companion source for Chapter 15: Optimisation Techniques
+ *              (see "Look-Up Tables" section)
+ *
+ * Trade-off: 256 bytes of flash for O(1) sine at 3 cycles (LPM).
+ * Contrast with CORDIC (Chapter 19): no table, ~50 cycles per value.
+ * Use LUT when flash budget allows and latency matters more than space.
+ */
+
 #include <avr/io.h>
 
 /* sin8 -- look up 8-bit sine value (0..255) from a 256-entry flash table

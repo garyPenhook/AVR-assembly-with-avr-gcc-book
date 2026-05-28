@@ -1,4 +1,14 @@
 /* scheduler.S — two-task cooperative scheduler, ATtiny3217 Curiosity Nano
+ *                Companion source for Chapter 18: Real-Time Patterns
+ *
+ * Covers:
+ *   Tick-based cooperative scheduler: TCB0 ISR increments a global tick counter
+ *   Task table: each entry holds a deadline (tick threshold) and function pointer
+ *   Polling loop: main checks each task's deadline; if ticks >= deadline, call task
+ *   Blocking vs non-blocking: task_uart uses polling TX (blocks briefly per byte)
+ *   TCB0 as 1 ms timebase: CCMP = (F_CPU / 1000) - 1 = 3332 for 3.333 MHz
+ *   Jitter: cooperative scheduling cannot preempt a running task; deadline can slip
+ *   See scheduler_nb.S for the non-blocking TX-ring-buffer variant (Chapter 18)
  *
  * Hardware:
  *   LED0  = PA3, active low

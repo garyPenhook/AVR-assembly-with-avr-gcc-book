@@ -1,5 +1,18 @@
 /*
  * control.S — branches, skip instructions, loops, jump tables on ATtiny3217.
+ *              Companion source for Chapter 7: Branches and Control Flow
+ *
+ * Covers:
+ *   Conditional Branches: CPI + BRLO / BRSH for unsigned range clamp
+ *   Structured Control Flow Patterns:
+ *     two-way if/else (top-branch, fall-through)
+ *     top-tested while loop (test before body, may execute 0 times)
+ *     bottom-tested do-while (body always executes once)
+ *     fixed-count for loop with DEC + BRNE
+ *   Worked Example: Sum an Array — LPM loop accumulating into 16-bit r25:r24
+ *   Skip Instructions: SBRC / SBRS (register bit), SBIC / SBIS (I/O bit)
+ *   Jump Tables: bounds-check + IJMP via Z to RJMP dispatch table
+ *   Polling Loops: SBIS-based spin-wait on GPIO pin
  *
  * Build:
  *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -c control.S -o control.o
@@ -36,9 +49,11 @@ main:
     ldi r16, hi8(RAMEND)
     out SPH, r16
 
-    /* ── Two-way decision ─────────────────────────────────────────────────
-     * If r16 is above 100, clamp it to 100.
-     * Otherwise, add 5.
+    /* ── Structured Control Flow: two-way if/else (Chapter 7) ───────────
+     * Branch-to-else, fall-through-to-then pattern.
+     * CPI + BRLO: "if r16 >= 101 (i.e. > 100) fall through to then-branch."
+     * Inverted condition on the branch is normal in assembly — you branch
+     * PAST the then-body when the condition is false (else case).
      */
     ldi r16, 120
     cpi r16, 101            ; compare r16 with 101 (> 100 means >= 101)
@@ -49,9 +64,10 @@ else_branch:
     subi r16, -5            ; else-branch: r16 += 5
 end_if:
 
-    /* ── Top-tested loop ──────────────────────────────────────────────────
-     * Decrement r16 until it reaches zero.
-     * Test at top: loop may execute 0 times.
+    /* ── Structured Control Flow: top-tested while loop (Chapter 7) ─────
+     * Test condition BEFORE the body; the loop may execute 0 times.
+     * Equivalent C: while (r16 != 0) { r16--; }
+     * BREQ at top exits immediately if r16 is already 0.
      */
     ldi r16, 10
 top_test:
@@ -61,10 +77,11 @@ top_test:
     rjmp top_test
 top_done:
 
-    /* ── Bottom-tested loop ───────────────────────────────────────────────
-     * Increment r16 until it reaches 50.
-     * No pre-test: always executes at least once.
-     * Test only at bottom, so the branch is also the loop-back.
+    /* ── Structured Control Flow: bottom-tested do-while (Chapter 7) ────
+     * Body executes, THEN test: always runs at least once.
+     * Equivalent C: do { r16++; } while (r16 != 50);
+     * The single branch at the bottom both tests and loops back — saves
+     * one unconditional RJMP compared to the top-tested form.
      */
     clr r16
 do_body:
@@ -72,8 +89,10 @@ do_body:
     cpi r16, 50
     brne do_body            ; loop back if not 50 yet
 
-    /* ── Fixed-count loop ─────────────────────────────────────────────────
-     * Count down to 0: uses BRNE — cheapest test (no CPI needed).
+    /* ── Structured Control Flow: fixed-count for loop (Chapter 7) ──────
+     * Count DOWN to 0: DEC + BRNE is the tightest idiom.
+     * DEC sets Z=1 when the counter hits 0; no CPI needed.
+     * Equivalent C: for (r18 = 8; r18 != 0; r18--) { r17 += 3; }
      */
     clr r17
     ldi r18, 8
@@ -82,9 +101,11 @@ count_loop:
     dec  r18
     brne count_loop
 
-    /* ── Array sum — worked example ───────────────────────────────────────
-     * Sum 8 bytes from flash into 16-bit r25:r24.
-     * Use LPM: Z is the flash byte address of test_array.
+    /* ── Worked Example: Sum an Array (Chapter 7) ────────────────────────
+     * Sum 8 bytes from flash into a 16-bit accumulator r25:r24.
+     * Z holds the flash byte address; LPM reads each byte and Z++ advances.
+     * ADC r25, r1 propagates any carry from the 8-bit ADD into the high byte.
+     * r1 is the GCC zero register — always 0 unless MUL/MULS just ran.
      */
     ldi ZL, lo8(test_array)
     ldi ZH, hi8(test_array)
@@ -102,10 +123,11 @@ sum_loop:
     sts result16,   r24     ; store result
     sts result16+1, r25
 
-    /* ── Skip instructions: SBRC / SBRS ──────────────────────────────────
-     * SBRC Rr, b — Skip if Bit b of Rr is Clear
-     * SBRS Rr, b — Skip if Bit b of Rr is Set
-     * Skips exactly one instruction (1-word or 2-word).
+    /* ── Skip Instructions: SBRC / SBRS (Chapter 7) ─────────────────────
+     * SBRC Rr, b — Skip next instruction if bit b of Rr is Clear
+     * SBRS Rr, b — Skip next instruction if bit b of Rr is Set
+     * Skips exactly one instruction (1-word or 2-word — skip is adjusted).
+     * Avoids a branch label for simple "do one thing if bit set" patterns.
      */
     ldi r16, 0b00000101     ; flags byte
     sbrc r16, 0             ; skip next if bit 0 clear — bit 0 IS set, no skip
@@ -117,12 +139,12 @@ sum_loop:
     sbrs r16, 3             ; skip next if bit 3 set — bit 3 clear, no skip
     rcall action_d          ; executed
 
-    /* ── SBIC / SBIS — skip on I/O bit ───────────────────────────────────
+    /* ── Skip Instructions: SBIC / SBIS — I/O bit test (Chapter 7) ──────
      * SBIC A, b — Skip if bit b of I/O reg A (addr 0x00–0x1F) is Clear
      * SBIS A, b — Skip if bit b of I/O reg A (addr 0x00–0x1F) is Set
-     *
-     * On ATtiny3217, low I/O (0x00–0x1F) includes GPIOR0-3.
-     * Use GPIOR0 as a fast 1-cycle-accessible flag byte.
+     * I/O address range is 0x00–0x1F (lower half of classical I/O space).
+     * On ATtiny3217, VPORTA/B/C and GPIOR0-3 live here.
+     * GPIOR0 is a general-purpose flag byte accessible in a single cycle.
      */
     ldi r16, (1 << 2)
     out GPIOR0, r16         ; GPIOR0 bit 2 = 1
@@ -131,11 +153,12 @@ sum_loop:
     sbic GPIOR0, 3          ; skip if bit 3 clear — IS clear → skip
     rcall action_b          ; skipped
 
-    /* ── Jump table ───────────────────────────────────────────────────────
+    /* ── Jump Tables: IJMP dispatch (Chapter 7) ──────────────────────────
      * Dispatch r16 values 0, 1, or 2 to separate handlers.
-     * Other values use the default handler.
-     * Strategy: load Z with the selected table entry and IJMP into it.
-     * Table entries are executable RJMP instructions, one word each.
+     * Strategy: load Z with the address of jtable[selector] and IJMP.
+     * Each table entry is one RJMP instruction = one word (2 bytes).
+     * Z is a word pointer: Z = pm(jtable) + selector (add the index directly).
+     * Always bounds-check BEFORE computing Z to prevent wild jumps.
      */
     ldi r16, 1              ; selector = 1
 

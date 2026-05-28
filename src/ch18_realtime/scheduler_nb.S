@@ -1,9 +1,13 @@
 /* scheduler_nb.S — non-blocking USART variant, ATtiny3217 Curiosity Nano
+ *                   Companion source for Chapter 18: Real-Time Patterns
  *
- * Extends scheduler.S with:
- *   - 8-byte TX ring buffer
- *   - USART0_DRE ISR fills TXDATAL from buffer (non-blocking send)
- *   - task_uart enqueues a multi-byte status string each second
+ * Extends scheduler.S:
+ *   TX ring buffer (8 bytes, power-of-two for masking): head/tail indices in SRAM
+ *   USART0_DRE ISR: fires when TX data register is empty; pops one byte from buffer
+ *   DREIE enable/disable: task enables DREIE when enqueueing, ISR disables when empty
+ *   Non-blocking enqueue: task_uart writes to ring buffer and returns immediately
+ *   Lock-free single-producer/single-consumer: tail written only by task, head by ISR
+ *   Contrast with scheduler.S: polling TX blocks the scheduler during each byte
  *
  * Hardware:
  *   LED0  = PA3, active low

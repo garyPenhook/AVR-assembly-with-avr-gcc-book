@@ -1,4 +1,11 @@
 /* bin16_to_bcd.S — double-dabble: 16-bit binary → 5-digit packed BCD
+ *                   Companion source for Chapter 17: Bit Manipulation & Fixed-Point Math
+ *                   (see "Binary to BCD Conversion" section)
+ *
+ * Algorithm: double-dabble (shift-and-add-3).  Shift the binary value left
+ * one bit at a time into the BCD accumulator.  After each shift, any BCD
+ * nibble >= 5 is pre-corrected by adding 3 before the next shift so the
+ * nibble never exceeds 9.  16 shifts → 5 packed BCD digits in R21:R20:R19.
  *
  * Entry:  R25:R24 = 16-bit unsigned value (0–65535)
  * Exit:   R21:R20:R19 = packed BCD (5 digits)

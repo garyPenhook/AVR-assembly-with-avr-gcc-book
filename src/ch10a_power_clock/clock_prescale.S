@@ -1,5 +1,13 @@
 /*
- * clock_prescale.S - Change ATtiny3217 main clock prescaler through CCP.
+ * clock_prescale.S — Change ATtiny3217 main clock prescaler through CCP.
+ *                    Companion source for Chapter 10A: Power and Clock Options
+ *
+ * Covers:
+ *   CCP (Configuration Change Protection) — write 0xD8 to CCP, then write
+ *   the protected register within 4 CPU cycles with no interrupt between
+ *   CLKCTRL_MCLKCTRLB — prescaler enable and division factor
+ *   Factory default: OSC20M / 6 = 3.333 MHz; this demo changes the divisor
+ *   Observable effect: different prescaler visibly changes LED blink rate
  *
  * Hardware:
  *   LED0 on PA3, active-low on the Curiosity Nano.

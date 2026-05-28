@@ -1,6 +1,16 @@
 /*
  * loadstore.S — demonstrates all load/store addressing modes on ATtiny3217.
  *               Copies a flash table to SRAM two ways: LPM and mapped LD.
+ *               Companion source for Chapter 5: Load and Store
+ *
+ * Covers:
+ *   Pointer Registers X / Y / Z — r27:r26 / r29:r28 / r31:r30
+ *   Indirect Addressing: LD Rd, X+  (post-increment) and LD Rd, -X (pre-decrement)
+ *   Displacement Addressing: LDD / STD Rd, Y+q  (struct-style field access)
+ *   Reading Flash: LPM Rd, Z+  (program bus, byte address in Z)
+ *   Reading Flash: Mapped Access — add MAPPED_PROGMEM_START and use LD (AVRxt only)
+ *   Direct Addressing: LDS / STS — 32-bit instruction, 3-cycle load
+ *   Pointer Arithmetic: walking an array forward and backward
  *
  * Build:
  *   avr-gcc -x assembler-with-cpp -mmcu=attiny3217 -c loadstore.S -o loadstore.o
@@ -35,11 +45,12 @@ main:
     out SPH, r16
 
     /* ────────────────────────────────────────────────────────────────────
-     * Method 1: LPM — load from flash via program bus.
-     * Z = flash BYTE address of source.
+     * Reading Flash: LPM (Chapter 5)
+     * Z = flash BYTE address (not a data-space address).
      * X = SRAM byte address of destination.
-     * LPM Rd, Z+ — load byte at Z into Rd, then Z++.
-     * ST  X+, Rd — store Rd to address X, then X++.
+     * LPM Rd, Z+ — load byte at Z into Rd, then Z++ (post-increment).
+     * ST  X+, Rd — store Rd to address X, then X++ (post-increment).
+     * Timing: LPM is 3 cycles; LD from SRAM is 2 cycles.
      */
     ldi ZL,  lo8(powers_of_two)          ; Z = flash addr of table
     ldi ZH,  hi8(powers_of_two)
@@ -54,11 +65,12 @@ copy_lpm:
     brne copy_lpm
 
     /* ────────────────────────────────────────────────────────────────────
-     * Method 2: LD with mapped flash address (AVRxt feature).
-     * Add MAPPED_PROGMEM_START (0x8000) to the flash address.
-     * Z now points into the data address space where flash is mapped.
-     * Reads use the normal LD instruction. Flash writes are NVMCTRL-controlled,
-     * so mapped flash must not be treated as ordinary scratch SRAM.
+     * Reading Flash: Mapped Access — AVRxt only (Chapter 5)
+     * Add MAPPED_PROGMEM_START (0x8000) to obtain the data-space address.
+     * Z now sits in the flash window of the unified data address space.
+     * Normal LD instruction works — no special opcode needed.
+     * Flash writes are NVMCTRL-controlled; mapped flash is read-only here.
+     * Advantage over LPM: code that reads SRAM can read flash unchanged.
      */
     ldi ZL,  lo8(powers_of_two + MAPPED_PROGMEM_START)
     ldi ZH,  hi8(powers_of_two + MAPPED_PROGMEM_START)
@@ -73,8 +85,10 @@ copy_mapped:
     brne copy_mapped
 
     /* ────────────────────────────────────────────────────────────────────
-     * Displacement addressing: LDD / STD with Y or Z pointer.
-     * Access a struct-like block of SRAM without moving the pointer.
+     * Displacement Addressing: LDD / STD Y+q (Chapter 5)
+     * Access struct fields without moving the base pointer.
+     * Y is held at the base of buf_ld; fields reached by offset q (0..63).
+     * Only Y and Z support displacement; X does not (no LDD/STD X+q).
      * Here: write 0xAA to buf_ld[0], 0xBB to buf_ld[2], 0xCC to buf_ld[7]
      */
     ldi YL, lo8(buf_ld)
@@ -90,8 +104,10 @@ copy_mapped:
     ldd r17, Y+2                          ; r17 = buf_ld[2] = 0xBB (verify)
 
     /* ────────────────────────────────────────────────────────────────────
-     * Pre-decrement: walk an array backwards.
-     * X points ONE PAST the end; -X decrements before each load.
+     * Pointer Arithmetic: pre-decrement — walk array backwards (Chapter 5)
+     * X points ONE PAST the last element so the first -X lands on it.
+     * Contrast with post-increment (Z+): that leaves Z pointing past the end.
+     * Pre-decrement idiom is common in stack-style pop sequences.
      */
     ldi XL, lo8(buf_lpm + TABLE_LEN)     ; X = one past end
     ldi XH, hi8(buf_lpm + TABLE_LEN)
@@ -104,8 +120,10 @@ walk_backward:
     brne walk_backward
 
     /* ────────────────────────────────────────────────────────────────────
-     * Direct addressing: LDS / STS — for known fixed SRAM addresses.
-     * Slower (3 cycles load, 2 cycles store) and 32-bit instructions.
+     * Direct Addressing: LDS / STS (Chapter 5)
+     * For known fixed SRAM addresses — peripherals, named variables.
+     * LDS is a 32-bit (2-word) instruction: 3 cycles load, 2 cycles store.
+     * Indirect LD via a pointer register is faster when you have a pointer.
      */
     ldi  r16, 0x42
     sts  buf_lpm,   r16                   ; buf_lpm[0] = 0x42

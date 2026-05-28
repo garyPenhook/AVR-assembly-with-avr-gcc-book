@@ -319,9 +319,10 @@ ldi  r19, 0xF0          ; r19 = 240 (upper nibble set)
 ```
 
 In AVR register and peripheral documentation, values are always given in hex.
-The SRAM address space starts at `0x3C00` on the ATtiny3217; the stack pointer
+The SRAM address space starts at `0x3800` on the ATtiny3217; the stack pointer
 register SPL is at I/O address `0x3D`; the PORTB output register is at
-`0x0420`. These addresses only make visual sense in hex.
+`0x0424` (PORTB base `0x0420` plus the `OUT` offset `0x04`). These addresses
+only make visual sense in hex.
 
 ---
 
@@ -842,19 +843,39 @@ bin_bcd_skip_hunds:
 
 **Trace: binary 137 (0x89) → should give hundreds=1, tens=3, units=7 → 0x37 in r17, 0x01 in r18**
 
-| Iteration | r16 (binary) | r17 (BCD tens:units) | r18 (hunds) |
-|-----------|-------------|----------------------|-------------|
-| Start     | 1000 1001   | 0x00                 | 0x00        |
-| After +3 check, shift 1 | 0001 0010 | 0x01 | 0x00 |
-| After +3 check, shift 2 | 0010 0100 | 0x02 | 0x00 |
-| After +3 check, shift 3 | 0100 1000 | 0x04 | 0x00 |
-| After +3 check, shift 4 | 1001 0000 | 0x08 | 0x00 |
-| +3 (units 8≥5? No. 8<5? 8≥5), shift 5 | 0010 0000 | 0x17 | 0x00 |
-| After +3 (tens 1<5, units 7≥5 → +3→0xA then shift), shift 6 | 0100 0000 | 0x25 | 0x00 |
-| After checks and shift 7 | 1000 0000 | 0x6B | 0x00 |
-| After checks (+3 tens ≥5) and shift 8 | 0000 0000 | 0x37 | 0x01 |
+Each iteration does two things, in order:
 
-Final: r18=0x01 (hundreds=1), r17=0x37 (tens=3, units=7) → 137 ✓
+1. **Add-3 correction** — for any BCD nibble (units, tens, hundreds) that
+   is currently ≥ 5, add 3 to that nibble.
+2. **Shift left by one** — the MSB of `r16` shifts out into C; `r17` and
+   then `r18` shift left, with C feeding into the LSB of `r17`.
+
+Starting state: `r16 = 0x89 = 1000 1001`, `r17 = 0x00`, `r18 = 0x00`.
+
+| Iter | r16 before shift | Nibbles ≥ 5 → add-3 | r17 after add-3 | C from MSB | r17 after shift | r18 after shift |
+|------|------------------|---------------------|-----------------|------------|-----------------|-----------------|
+| 1 | `1000 1001` | none (all 0)                  | `0x00` | 1 | `0x01` | `0x00` |
+| 2 | `0001 0010` | none (units=1, tens=0)        | `0x01` | 0 | `0x02` | `0x00` |
+| 3 | `0010 0100` | none (units=2)                | `0x02` | 0 | `0x04` | `0x00` |
+| 4 | `0100 1000` | none (units=4)                | `0x04` | 0 | `0x08` | `0x00` |
+| 5 | `1001 0000` | units=8 → +3                  | `0x0B` | 1 | `0x17` | `0x00` |
+| 6 | `0010 0000` | units=7 → +3                  | `0x1A` | 0 | `0x34` | `0x00` |
+| 7 | `0100 0000` | none (units=4, tens=3)        | `0x34` | 0 | `0x68` | `0x00` |
+| 8 | `1000 0000` | units=8 → +3, tens=6 → +0x30  | `0x9B` | 1 | `0x37` | `0x01` |
+
+Two iterations are worth checking by hand:
+
+- **Iteration 5.** Pre-shift `r17 = 0x08`. Units nibble = 8 ≥ 5, so add 3:
+  `0x08 + 0x03 = 0x0B`. Now shift: the MSB of `r16 = 1001 0000` is 1, so
+  `C = 1`; `ROL r17` gives `(0x0B << 1) | 1 = 0001 0111 = 0x17`.
+
+- **Iteration 8.** Pre-shift `r17 = 0x68`. Units nibble = 8 ≥ 5, add 3 →
+  `0x6B`. Tens nibble = 6 ≥ 5, add `0x30` → `0x9B`. Shift: MSB of
+  `r16 = 1000 0000` is 1, so `C = 1`; `ROL r17` on `0x9B = 1001 1011`
+  gives `0011 0111 = 0x37` with carry-out 1, which `ROL r18` then catches
+  as `0x01`.
+
+Final: `r18 = 0x01` (hundreds = 1), `r17 = 0x37` (tens = 3, units = 7) → 137 ✓
 
 ### Converting Packed BCD to Binary
 
@@ -1068,9 +1089,10 @@ Binary ↔ BCD:
    `ANDI` and `SWAP`) that extract the tens digit and units digit of the
    minutes value into separate registers.
 
-4. The PORTB output data register is at SRAM address `0x0420`. Write this
-   address in binary. How many address bits are needed to reach `0x0420`?
-   (Hint: what is the smallest power of two greater than `0x0420`?)
+4. The PORTB output data register is at SRAM address `0x0424` (PORTB base
+   `0x0420` plus the `OUT` register offset `0x04`). Write this address in
+   binary. How many address bits are needed to reach `0x0424`?
+   (Hint: what is the smallest power of two greater than `0x0424`?)
 
 5. Add the packed BCD values `0x57` and `0x46` using the `bcd_add` subroutine.
    Trace every step: binary add result, H and C flags, each correction applied,

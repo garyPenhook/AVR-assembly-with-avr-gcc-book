@@ -1,5 +1,16 @@
 /*
  * interrupts.S — external pin interrupt toggles LED on ATtiny3217.
+ *                Companion source for Chapter 10: Interrupts
+ *
+ * Covers:
+ *   Interrupt Vector Table — 4-byte (JMP) entries; slot numbers and addresses
+ *   ISR prologue/epilogue — PUSH r16; IN r16, SREG; PUSH r16 / reverse at end
+ *   Why save SREG: interrupted code may be between a compare and its branch
+ *   RETI vs RET — RETI exits CPUINT state and re-enables interrupt nesting
+ *   Write-1-to-clear flag protocol: SBI VPORTB_INTFLAGS clears the pending bit
+ *   PORTB_PIN2CTRL: PORT_ISC_FALLING_gc + PORT_PULLUPEN_bm in one STS write
+ *   SEI placement: configure hardware BEFORE enabling global interrupts
+ *   Idle main loop: production code would SLEEP here instead of spin-wait
  *
  * Hardware:
  *   LED0   PA3, active-low   (0 = on)

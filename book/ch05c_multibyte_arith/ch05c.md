@@ -732,8 +732,8 @@ lds  r24, var32+2
 lds  r25, var32+3       ; high byte
 ```
 
-Each `LDS` is a 2-cycle, 2-word instruction on the ATtiny3217. Four LDS
-instructions = 8 cycles, 8 words of flash.
+Each `LDS` is a 3-cycle, 2-word instruction on the ATtiny3217 (AVRxt). Four
+LDS instructions = 12 cycles, 8 words of flash.
 
 ### Loading with a Pointer Register (More Efficient)
 
@@ -756,8 +756,8 @@ ld   r24, X+
 ld   r25, X+        ; X now points one past the end of the 32-bit value
 ```
 
-Post-increment is 2 cycles per instruction. Four loads = 8 cycles with less
-flash than four LDS instructions (one word each instead of two).
+`LD Rd, X+` is 2 cycles on AVRxt. Four loads = 8 cycles, half the flash of
+four LDS instructions (one word each instead of two) and four cycles faster.
 
 ### Storing with STS
 
@@ -798,7 +798,7 @@ sei                 ; re-enable interrupts
 ```
 
 For an 8-byte value, this means holding interrupts off for 8 LDS instructions =
-16 cycles. Keep the critical section as short as possible.
+24 cycles on AVRxt. Keep the critical section as short as possible.
 
 ---
 
@@ -1005,9 +1005,9 @@ COM  Rd         r0–r31                 1   C=1, S, V=0, N, Z    Bitwise NOT; b
 ADIW Rd, K     r24/XL/YL/ZL; K=0-63   2   S, V, N, Z, C; no H  16-bit += constant; use for +1 on 16-bit pairs
 SBIW Rd, K     r24/XL/YL/ZL; K=0-63   2   S, V, N, Z, C; no H  16-bit -= constant
 LDS  Rd, k      r0–r31                 3   none                  Load byte from SRAM (direct)
-STS  k, Rr      r0–r31                 3   none                  Store byte to SRAM (direct)
-LD   Rd, X/Y/Z  r0–r31                 2   none                  Load byte (pointer; +/- variants add 1 cycle)
-ST   X/Y/Z, Rr  r0–r31                 2   none                  Store byte (pointer; +/- variants add 1 cycle)
+STS  k, Rr      r0–r31                 2   none                  Store byte to SRAM (direct)
+LD   Rd, X/Y/Z  r0–r31                 2   none                  Load byte (pointer; +/- variants same cycle count)
+ST   X/Y/Z, Rr  r0–r31                 1   none                  Store byte (pointer; +/- variants same cycle count)
 
 *SBC, SBCI, CPC: only CLEAR Z (never set Z); Z=1 iff all bytes in the chain produced zero.
 ```

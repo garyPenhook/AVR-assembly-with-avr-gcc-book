@@ -1,5 +1,15 @@
 /*
  * subroutines.S — call/ret, stack frames, register discipline, recursion.
+ *                 Companion source for Chapter 8: Subroutines and the Stack
+ *
+ * Covers:
+ *   CALL and RCALL — push 2-byte return address, branch to target (see ch08)
+ *   RET / RETI — pop return address, resume caller
+ *   PUSH and POP — manual register save/restore; stack grows downward
+ *   Register Ownership — callee-saved r14–r15, call-clobbered r18–r27
+ *   Prologue and Epilogue Patterns — save Y, allocate locals, restore Y
+ *   Stack Depth Analysis — 4 bytes locals + 2 return address = 6 bytes peak
+ *   Worked Example: Recursive Factorial — save n across RCALL, restore with POP
  *
  * Build:
  *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -c subroutines.S -o subroutines.o
@@ -19,6 +29,9 @@ __vectors:
  *   Input:  r24 = first addend, r22 = second addend
  *   Output: r25:r24 = 16-bit sum
  *   Clobbers: r24, r25
+ *
+ * Chapter 8: Register Ownership — r24/r25 are the AVR-LibC ABI return
+ * registers for 16-bit values.  r22/r23 hold the second argument.
  * ════════════════════════════════════════════════════════════════════════ */
 .section .text
 
@@ -32,6 +45,10 @@ simple_add:
 /* ════════════════════════════════════════════════════════════════════════
  * save_restore — demonstrates callee-saved register discipline.
  * Uses r14, r15: this routine saves and restores them.
+ *
+ * Chapter 8: Register Ownership — r14/r15 are callee-saved.  Any routine
+ * that uses them must PUSH on entry and POP in reverse order before RET.
+ * The caller can assume r14/r15 are unchanged across a subroutine call.
  * ════════════════════════════════════════════════════════════════════════ */
 .global save_restore
 save_restore:
@@ -54,6 +71,12 @@ save_restore:
  *     Y+1 = local_a  (1 byte)
  *     Y+2 = local_b  (1 byte)
  *     Y+3 = local_c  (2 bytes, Y+3=lo, Y+4=hi)
+ *
+ * Chapter 8: Prologue and Epilogue Patterns
+ *   Prologue: PUSH Y; IN Y, SP; SBIW Y, n; OUT SP, Y
+ *   Epilogue (inverse): ADIW Y, n; OUT SP, Y (restore SP); POP Y
+ *   Write SPH before SPL when increasing SP to avoid a transient low SP.
+ *   Write SPH before SPL when decreasing SP is critical for interrupt safety.
  * ════════════════════════════════════════════════════════════════════════ */
 .global with_frame
 with_frame:
@@ -112,6 +135,11 @@ mul8x16:
  *   Clobbers: r0, r1, r16, r22, r23
  *
  *   Peak stack for n=8: 8 return addresses + 7 saved n bytes = 23 bytes.
+ *
+ * Chapter 8: Worked Example: Recursive Factorial
+ *   PUSH r24 saves the current n before the recursive RCALL overwrites it.
+ *   POP r16 recovers n after RCALL returns, then calls mul8x16 to multiply.
+ *   Each recursion level consumes 2 bytes (return addr) + 1 byte (saved n).
  * ════════════════════════════════════════════════════════════════════════ */
 .global factorial
 

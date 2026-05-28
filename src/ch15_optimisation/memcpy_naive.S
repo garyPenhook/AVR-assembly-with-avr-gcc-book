@@ -1,3 +1,13 @@
+/* memcpy_naive.S — single-byte-per-iteration memcpy baseline
+ *                   Companion source for Chapter 15: Optimisation Techniques
+ *                   (see "Loop Unrolling" section — naive version for comparison)
+ *
+ * One LD + one ST per byte: straightforward but loop overhead is 2 cycles
+ * (DEC + BRNE) per byte.  For large buffers, this is measurably slower
+ * than the unrolled 4x version in memcpy_fast.S.
+ * Compare symbol sizes: avr-nm --size-sort bench.elf
+ */
+
 #include <avr/io.h>
 
 /* memcpy_naive -- copy len bytes from src to dst, one byte per loop

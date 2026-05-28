@@ -1,7 +1,16 @@
 /*
- * timer_ctc.S — LED toggle using TCA0 in frequency mode.
- * Target: factory-default ATtiny3217 clock, 20 MHz / 6 = 3.333 MHz.
+ * timer_ctc.S — LED toggle using TCA0 in frequency (CTC) mode.
+ *               Companion source for Chapter 11: Timer/Counter
  *
+ * Covers:
+ *   TCA0 CTC (Clear Timer on Compare) — CNT counts up; resets to 0 when CNT == CMP0
+ *   Prescaler selection: DIV1024 reduces 3.333 MHz to a ~3258 Hz timer clock
+ *   TOP calculation: TOP = (f_cpu / (prescaler × f_tick)) - 1 = 3254 for 1 Hz
+ *   TCA0_INTCTRL: enable CMP0 interrupt (LCMP0EN bit)
+ *   ISR: save/restore SREG, toggle LED, clear interrupt flag (write-1-to-clear)
+ *   SEI before entering idle loop — timer interrupt drives all activity
+ *
+ * Target: factory-default ATtiny3217 clock, 20 MHz / 6 = 3.333 MHz.
  * TCA0 counts up. When CNT == CMP0, it fires an interrupt and resets to 0.
  * Prescaler 1024, TOP = 3254:
  *   f_tick = 3333333 / (1024 * (3254 + 1)) = 1.000371 Hz

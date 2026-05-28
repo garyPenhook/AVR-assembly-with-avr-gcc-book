@@ -1,5 +1,15 @@
 /*
  * spi_eeprom.S — write one byte to a 25LC010A SPI EEPROM
+ *                Companion source for Chapter 13: SPI & TWI (I2C) Overview
+ *
+ * Covers:
+ *   SPI0 hardware on ATtiny3217: CTRLA (enable, master, prescaler), CTRLB (mode 0,0)
+ *   CS (chip-select) management: software-driven active-low on PA4
+ *   SPI frame: assert CS → write TXDATA → wait RXCIF → read RXDATA → deassert CS
+ *   25LC010A protocol: WREN latch, WRITE command (opcode 0x02), address + data
+ *   WIP (Write-In-Progress) polling: RDSR command reads status register bit 0
+ *   Mode 0,0 (CPOL=0, CPHA=0): SCK idle low, data sampled on rising edge
+ *
  * Target:  ATtiny3217 @ 3.333 MHz internal oscillator
  * Wiring:
  *   PA1 (MOSI) -> EEPROM SI

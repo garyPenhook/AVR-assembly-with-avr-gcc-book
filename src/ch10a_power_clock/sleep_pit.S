@@ -1,5 +1,14 @@
 /*
- * sleep_pit.S - Power-down sleep, wake from RTC PIT, toggle LED0.
+ * sleep_pit.S — Power-down sleep, wake from RTC PIT, toggle LED0.
+ *               Companion source for Chapter 10A: Power and Clock Options
+ *
+ * Covers:
+ *   SLPCTRL — select power-down sleep mode (lowest power, most peripherals off)
+ *   RTC PIT (Periodic Interrupt Timer) — stays active in power-down sleep
+ *   ULP 1 kHz oscillator (INT1K): selected with CLKSEL = 0x01, always on
+ *   PIT period: RTC_PERIOD_CYC1024_gc = 1024 / 1000 Hz = ~1.024 s per wake
+ *   SLEEP instruction — CPU halts; PIT ISR wakes it, RETI resumes after SLEEP
+ *   Power savings: main loop spends nearly all time in power-down
  *
  * Hardware:
  *   LED0 on PA3, active-low on the ATtiny3217 Curiosity Nano.

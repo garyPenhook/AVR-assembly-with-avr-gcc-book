@@ -8,3 +8,9 @@
 % Slightly tighter lists without fighting pandoc's defaults too hard.
 \usepackage{enumitem}
 \setlist{nosep,leftmargin=*}
+
+% DejaVu Serif/Mono do not cover these symbols in every shape XeLaTeX uses.
+\usepackage{amssymb}
+\usepackage{newunicodechar}
+\newunicodechar{✓}{\ensuremath{\checkmark}}
+\newunicodechar{✗}{\ensuremath{\times}}

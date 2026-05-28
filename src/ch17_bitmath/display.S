@@ -1,4 +1,9 @@
 /* display.S — ADC reading → temperature → BCD → SPI 7-segment display
+ *              Companion source for Chapter 17: Bit Manipulation & Fixed-Point Math
+ *              (see "Complete Example: Sensor Reading to 7-Segment Display" section)
+ *
+ * Integrates mul8u (Q8.8 scale), bin16_to_bcd (double-dabble), and SPI output
+ * into a complete pipeline: raw ADC → scaled temperature → packed BCD → display.
  *
  * Target: ATmega328P (has SPI hardware and MUL instruction)
  * Wiring: raw segment-byte SPI/shift-register display interface on SPI0

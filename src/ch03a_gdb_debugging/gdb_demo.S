@@ -1,5 +1,13 @@
 /*
- * gdb_demo.S - Small ATtiny3217 assembly program for GDB practice
+ * gdb_demo.S — Small ATtiny3217 assembly program for GDB practice
+ *              Companion source for Chapter 3A: Debugging AVR Assembly with GDB
+ *
+ * Covers:
+ *   Building with debug info (-g3 -Wa,--gdwarf-2) for source-level GDB use
+ *   Setting breakpoints with "break break_here" and "break sum_loop"
+ *   Inspecting SRAM variables with "x/1xb &sum_result"
+ *   Examining registers with "info registers" after each step
+ *   LPM flash load loop — good candidate for "stepi" / "nexti" practice
  *
  * Build from ch03a_gdb_debugging/:
  *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -g3 -Wa,--gdwarf-2 \

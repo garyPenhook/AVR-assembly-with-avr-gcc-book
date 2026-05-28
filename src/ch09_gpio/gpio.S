@@ -1,5 +1,15 @@
 /*
  * gpio.S — GPIO: configure output LED, poll input button with debounce.
+ *           Companion source for Chapter 9: GPIO
+ *
+ * Covers:
+ *   ATtiny3217 Port Architecture: VPORT (I/O space) vs full PORT (memory-mapped)
+ *   Configuring a GPIO Output: SBI VPORTA_DIR; SBI VPORTA_OUT (active-low LED)
+ *   Configuring a GPIO Input with Pull-Up: PORTB_PIN2CTRL with PORT_PULLUPEN_bm
+ *   SBIS / SBIC — single-cycle bit test on VPORT registers (I/O addr 0x00–0x1F)
+ *   Debounce: software delay + re-sample to reject contact bounce (~20 ms)
+ *   Worked Example: Button-Controlled LED — poll, debounce, toggle, wait-release
+ *   OUTTGL atomic toggle: safer than read-XOR-write across interrupt boundaries
  *
  * Hardware (ATtiny3217):
  *   LED0   PA3, active-low (drive 0 = on)

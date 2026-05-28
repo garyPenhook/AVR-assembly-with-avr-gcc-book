@@ -1,4 +1,13 @@
 /* dds.S — Direct Digital Synthesis on ATtiny3217 Curiosity Nano
+ *           Companion source for Chapter 18A: DDS and Phase Accumulator Math
+ *
+ * Covers:
+ *   Phase accumulator: 16-bit register pair incremented by tuning word M each sample
+ *   Tuning word: M = (F_out × 2^N) / F_sample = (440 × 65536) / 7992 = 3610 for A4
+ *   LUT lookup: high byte of accumulator (bits [15:8]) indexes the 256-entry sine table
+ *   TCB0 as sample clock: CCMP=416 → 7992 Hz ISR, sets TCA0 PWM duty each sample
+ *   TCA0 single-slope PWM: 8-bit duty in CMP0, period set by PER=255, ~13 kHz PWM
+ *   Frequency resolution: F_sample / 2^16 = 7992 / 65536 ≈ 0.122 Hz per LSB of M
  *
  * Generates a sine wave via 16-bit phase accumulator and 256-entry flash table.
  * Output: 8-bit PWM on PB0 (TCA0 WO0) at ~13 kHz PWM rate.

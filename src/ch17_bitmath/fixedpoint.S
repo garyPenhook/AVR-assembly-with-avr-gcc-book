@@ -1,4 +1,11 @@
 /* fixedpoint.S — Q8.8 fixed-point arithmetic (ATtiny3217, portable multiply)
+ *                Companion source for Chapter 17: Bit Manipulation & Fixed-Point Math
+ *                (see "Fixed-Point Q8.8 Arithmetic" section)
+ *
+ * Q8.8 format: 16-bit value where the upper 8 bits are the integer part
+ * and the lower 8 bits are the fractional part (resolution = 1/256 ≈ 0.004).
+ * Multiply: form four 8×8 partial products, sum them, extract bits [23:8].
+ * Uses mul8u from mul8u.S — no MUL hardware instruction required.
  *
  * mulq88 — unsigned Q8.8 × Q8.8 → Q8.8 using mul8u.
  */

@@ -1,6 +1,13 @@
 /* mul8u.S — unsigned 8×8 → 16 shift-and-add multiply
+ *            Companion source for Chapter 17: Bit Manipulation & Fixed-Point Math
+ *            (see "Shift-and-Add Multiplication" section)
  *
  * Works on any AVR (no MUL instruction needed).
+ * Algorithm: for each bit of the multiplier (LSB first), if bit is 1 add the
+ * multiplicand (left-shifted to the current bit weight) to the accumulator.
+ * Each loop: LSR multiplier (shifts next bit to C), BRCC to skip ADD, LSL
+ * multiplicand (doubles its weight for the next bit position).
+ * Also includes mul8s (signed) using the Baugh-Wooley sign-correction trick.
  *
  * Entry:  R16 = multiplicand A
  *         R17 = multiplier   B

@@ -1,5 +1,15 @@
 /*
  * nvmctrl_write.S — NVMCTRL flash page-write routines for ATtiny3217
+ *                   Companion source for Chapter 16: Self-Programming Flash: NVMCTRL
+ *
+ * Covers:
+ *   NVMCTRL on AVRXMEGA3: plain ST to mapped flash fills page buffer
+ *   CCP_SPM_gc key (0x9D): opens a 4-cycle window to write NVMCTRL_CTRLA
+ *   PAGEERASEWRITE command (0x03): erase page then write buffer in one operation
+ *   CLI/SEI around CCP window: prevents interrupt from consuming the 4 cycles
+ *   FBUSY polling: wait until previous NVM operation completes before proceeding
+ *   128-byte page granularity: writes must align to page boundaries
+ *   ATtiny3217 mapped flash: ST Z+ writes to page buffer when Z in flash window
  *
  * Target:  ATtiny3217 (AVRXMEGA3 architecture)
  * Board:   Curiosity Nano

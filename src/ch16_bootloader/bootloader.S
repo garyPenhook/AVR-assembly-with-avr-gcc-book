@@ -1,5 +1,15 @@
 /*
  * bootloader.S — minimal UART bootloader for ATmega328P
+ *                Companion source for Chapter 16: Self-Programming Flash: NVMCTRL
+ *
+ * Covers (ATmega328P SPM-based approach, for conceptual comparison with ATtiny3217):
+ *   Boot section: linked at 0x7C00 with --section-start=.text=0x7C00
+ *   BOOTRST fuse: redirects reset vector to boot section
+ *   SPM instruction: store to page buffer, page-erase, page-write sequence
+ *   Intel HEX protocol: parse :LL AAAA TT [DD...] CC records over UART
+ *   Checksum verification: 0x00 - sum of all record bytes (two's complement)
+ *   Jump-to-application: IJMP via Z after receiving EOF record (type 0x01)
+ *   Self-programming pattern contrasted with ATtiny3217 NVMCTRL in nvmctrl_write.S
  *
  * Target: ATmega328P (16 MHz, BOOTSZ=10 → 1KB boot section at 0x7C00)
  *

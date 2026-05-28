@@ -1,5 +1,14 @@
 /*
  * selfupdate.S — UART-driven self-update firmware for ATtiny3217 Curiosity Nano
+ *                Companion source for Chapter 16: Self-Programming Flash: NVMCTRL
+ *
+ * Covers:
+ *   Complete self-update firmware: USART receive + NVMCTRL page-write loop
+ *   Intel HEX parsing: ':' framing, byte-count, address, type, data, checksum
+ *   Page buffer fill: collect 128 bytes into SRAM, then call nvm_write_page
+ *   BOOTEND = 0: no boot section protection; self-update overwrites its own flash
+ *   LED status: blink on each ACK'd record, hold on for write errors
+ *   Jump-to-app: IJMP Z to 0x0000 on EOF record after final page write
  *
  * Target:  ATtiny3217 (AVRXMEGA3 architecture)
  * Board:   Curiosity Nano

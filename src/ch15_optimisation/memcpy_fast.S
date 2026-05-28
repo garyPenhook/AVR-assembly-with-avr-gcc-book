@@ -1,3 +1,13 @@
+/* memcpy_fast.S — 4x unrolled memcpy with tail loop
+ *                  Companion source for Chapter 15: Optimisation Techniques
+ *                  (see "Loop Unrolling" section — optimised version)
+ *
+ * Unrolling 4x reduces loop overhead from 2 cycles/byte to 0.5 cycles/byte.
+ * Tail loop handles the remainder (0–3 bytes) without code duplication.
+ * No PUSH/POP needed: all used registers are call-clobbered (r18–r27).
+ * Compare code size vs memcpy_naive.S: larger body, fewer executed instructions.
+ */
+
 #include <avr/io.h>
 
 /* memcpy_fast -- unrolled 4x copy with tail handler
