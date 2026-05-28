@@ -449,9 +449,11 @@ perform operation → reset again.
 
 ### Chip Erase
 
-Chip erase clears all flash, EEPROM, and lock bits. The User Row is
-**not** affected by chip erase — its content is preserved (NVMCTRL §9.3.1.3).
-Chip erase is the only way to unlock a locked device.
+Chip erase clears all flash and lock bits. EEPROM is also erased unless
+the `EESAVE` fuse (SYSCFG0 bit 0) is set — except on a locked device,
+where EEPROM is always erased regardless of `EESAVE`. The User Row is
+never affected by chip erase. Chip erase is the only way to unlock a
+locked device.
 
 ```
 Step  Action
