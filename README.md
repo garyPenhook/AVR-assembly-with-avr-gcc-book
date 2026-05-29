@@ -12,7 +12,7 @@ firmware: registers, memory, instruction behavior, peripheral setup, debugging,
 timing, and build artifacts you can inspect.
 
 **[Download the latest PDF](https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book/releases/latest/download/avr-assembly-programming.pdf)**
-&nbsp;·&nbsp; 21 chapters + appendices &nbsp;·&nbsp; runnable assembly for every topic.
+&nbsp;·&nbsp; 31 chapters + appendices &nbsp;·&nbsp; runnable assembly for every topic.
 
 **Website:** [garypenhook.github.io/AVR-assembly-with-avr-gcc-book](https://garypenhook.github.io/AVR-assembly-with-avr-gcc-book/)
 
