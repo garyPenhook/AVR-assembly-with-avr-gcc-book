@@ -1,7 +1,7 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
 # Book revision label (for release notes / tags only; the repo ships one PDF).
-PDF_VERSION := v1.4.9
+PDF_VERSION := v1.4.9.1
 PDF_OUTPUT := $(PDF_DIR)/$(PDF_NAME).pdf
 PDF_LOG := $(PDF_DIR)/build.log
 
