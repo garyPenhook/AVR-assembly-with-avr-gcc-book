@@ -1,4 +1,4 @@
-# Appendix F: Inspecting Your Binaries
+# Inspecting Your Binaries
 
 Assembling and linking turn your source into an ELF file, but an ELF file is
 not the end of the story. Before you flash a part you usually want to answer

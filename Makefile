@@ -39,6 +39,7 @@ CHAPTERS := \
 	book/ch19_cordic/ch19.md \
 	book/ch20_adc/ch20.md \
 	book/ch20a_filters/ch20a.md \
+	book/appendices/_appendix_divider.md \
 	book/appendices/appendix_a_registers.md \
 	book/appendices/appendix_b_instruction_set.md \
 	book/appendices/appendix_c_gas_directives.md \
