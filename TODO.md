@@ -4,7 +4,9 @@
 
 7. [DONE] Linear interpolation between LUT entries (ch15, interp8 / lut_interp.S)
 8. [DONE] Polynomial approximation with Horner's method (ch15, horner8 / horner.S)
-9. Fast integer square root
+9. [DONE] Fast integer square root (ch17, isqrt16 / src/ch17_bitmath/isqrt16.S).
+   Digit-by-digit, no MUL/divide; algorithm verified exhaustively against
+   floor(sqrt) for all 0..65535 via a host-C model; disassembly matches source.
 
 ## Missing Subject Matter To Add Later
 
@@ -41,8 +43,10 @@
   which prints "Device: Unknown" / no percent for attiny3217; appendix shows
   the device-aware output and notes the XC8 wrinkle. avr-size is absent from
   ~/.local/bin; it lives at /opt/microchip/xc8/.../avr/bin.
-- Testing and simulation: simavr or equivalent workflows, unit-style tests for
-  assembly routines, and regression checks for examples.
+- Testing and simulation: unit-style tests for assembly routines and regression
+  checks for examples. NOTE: simavr does not support the ATtiny3217 (AVRxt /
+  avrxmega3) core, so it is not an option here; rely on on-hardware avr-gdb
+  (Curiosity Nano nEDBG) or host-side algorithm models for verification.
 - C and assembly integration: callable assembly functions, inline asm constraints,
   ABI examples, structs, pointers, clobbers, and linker symbols.
 - Defensive firmware: watchdog recovery, fault counters, CRC/version metadata,

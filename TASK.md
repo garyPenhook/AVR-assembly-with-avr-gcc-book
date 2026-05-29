@@ -12,8 +12,10 @@ runnable code.
 - Linker: `avr-ld`
 - Object copy: `avr-objcopy` (generate Intel HEX for flashing)
 - Disassembler: `avr-objdump`
-- Simulator: `simavr` (optional, for testing without hardware)
-- Target MCU: ATtiny3217 (tinyAVR 2-series, avrxmega3 core)
+- Debugger: `avr-gdb` on hardware via the Curiosity Nano nEDBG (UPDI).
+  Note: simavr does NOT support the ATtiny3217 (AVRxt/avrxmega3) core, so it is
+  not used in this book; verify on hardware or by tracing the disassembly.
+- Target MCU: ATtiny3217 (tinyAVR 1-series, avrxmega3 core)
 
 ## Chapter Outline
 

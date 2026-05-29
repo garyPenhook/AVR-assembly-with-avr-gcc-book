@@ -16,7 +16,7 @@
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -o multibyte_arith.elf multibyte_arith.o
  *   avr-objdump -d multibyte_arith.elf
  *
- * Simulate via avr-gdb + simavr, or trace by hand from the objdump listing.
+ * Step under avr-gdb on hardware, or trace by hand from the objdump listing.
  */
 
 #include <avr/io.h>
