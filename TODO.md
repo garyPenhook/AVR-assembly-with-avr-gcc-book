@@ -23,8 +23,8 @@
   worked binary (blink.S on PA3) so all output matches:
   [DONE] Tier 1 essential: avr-objdump (-d/-S/-h), avr-objcopy (-O ihex),
          avr-size (-C --mcu=).
-  [TODO] Tier 2 supporting: avr-nm, avr-readelf, avr-addr2line.
-  [TODO] Tier 3 brief/skip: avr-gcc as assembler/linker driver (sidebar),
+  [DONE] Tier 2 supporting: avr-nm, avr-readelf, avr-addr2line.
+  [DONE] Tier 3 brief/skip: avr-gcc as assembler/linker driver (sidebar),
          avr-ar/ranlib (one line), skip c++filt/strings.
   Already covered: avr-as (App C), avr-ld (App D), avrdude (App E),
   avr-gdb (ch03a). Also consider an inline objdump/size "look at what you just

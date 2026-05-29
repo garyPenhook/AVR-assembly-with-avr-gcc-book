@@ -11,8 +11,10 @@ three questions:
 The GNU AVR toolchain answers each of these with a small, sharp tool:
 avr-size, avr-objdump, and avr-objcopy. The assembler (avr-as, see Appendix C),
 the linker (avr-ld, see Appendix D), the debugger (avr-gdb, see Chapter 3a),
-and avrdude (Appendix E) are covered elsewhere. This appendix covers the three
-inspection-and-conversion tools that sit between linking and flashing.
+and avrdude (Appendix E) are covered elsewhere. This appendix covers those three
+core tools and three supporting tools---avr-nm, avr-readelf, and
+avr-addr2line---that help you understand and diagnose the ELF the linker
+produces.
 
 The whole loop looks like this:
 
@@ -307,6 +309,233 @@ Other things avr-objcopy does:
 A note on size: never judge "how big is my program" from the byte count of the
 .hex or .bin file. Intel HEX is ASCII and roughly doubles the size; a binary
 may be padded by --gap-fill. Use avr-size for the real flash and RAM figures.
+
+
+## avr-nm - list symbols and their addresses
+
+avr-nm reads an object file or ELF and prints every symbol: its value
+(usually an address in flash or RAM), type, and name. The fastest way to answer
+"where did the linker put delay?" or "is this label visible to other files?" is
+avr-nm.
+
+The full output of avr-nm on blink.elf runs to about thirty lines because the
+linker script populates boundary and region symbols (type A, uppercase). The
+entries that come from your source are:
+
+    value    type  name
+    --------  ---  -------------------------
+    00000000   T   main
+    00000002   t   loop
+    0000000c   t   delay
+    00000010   t   .L11
+    00000000   a   VPORTA_DIR
+    00000001   a   VPORTA_OUT
+
+Type codes worth knowing:
+
+    Code   Meaning
+    ----   --------------------------------------------------------
+    T      Symbol in .text (code), global -- visible at link time.
+    t      Symbol in .text (code), local -- invisible outside the file.
+    D      Symbol in .data (initialised variable), global.
+    d      Symbol in .data, local.
+    B      Symbol in .bss (zero-initialised variable), global.
+    b      Symbol in .bss, local.
+    A      Absolute constant (linker-script boundary or region size).
+    a      Absolute constant, local. .equ symbols appear with this type.
+    U      Undefined -- referenced here but not defined in this file.
+
+Uppercase is global; lowercase is local. main is T because the source
+declares .global main. delay and loop are t because they have no .global
+directive and cannot be linked against from another file.
+
+Two details worth noticing:
+
+  - VPORTA_DIR and VPORTA_OUT appear as type a. A .equ constant is not
+    code or data: it is a named value resolved entirely at assembly time.
+    avr-nm includes it in the symbol table so a debugger can display the
+    name when it appears in an expression.
+
+  - .L11 is avr-nm's rendering of the numeric local label 1: on line 33 of
+    the source. avr-objdump renders the same symbol as <.L1^B1> -- both are
+    the assembler's internal name for the same label, displayed differently by
+    the two tools.
+
+Add -n to sort by address instead of alphabetically. This shows the flash
+layout in the order the linker placed things, which is easier to read when
+checking function order or looking for gaps:
+
+    $ avr-nm -n blink.elf | grep " t "
+    00000002 t loop
+    0000000c t delay
+    00000010 t .L11
+
+Lowercase t selects only local text symbols. Using [tT] would also produce the
+many linker-generated global T entries that clutter the sorted output. To locate
+a specific global symbol, grep by name:
+
+    $ avr-nm blink.elf | grep " main$"
+    00000000 T main
+
+Add -u to print only undefined symbols. An empty result means the ELF has
+no unresolved references and will link cleanly:
+
+    $ avr-nm -u blink.elf
+    (no output -- all symbols are defined)
+
+For multi-file projects, run avr-nm -u on each .o before linking to find which
+module references a missing symbol before the linker errors.
+
+
+## avr-readelf - inspect the ELF structure
+
+avr-objdump works on section contents; avr-readelf works on the ELF container
+itself. The distinction matters when you want to check architecture metadata,
+section flags, or program-header layout rather than the bytes those sections
+hold.
+
+The -h flag prints the ELF header:
+
+    $ avr-readelf -h blink.elf
+    ELF Header:
+      Magic:   7f 45 4c 46 01 01 01 00 00 00 00 00 00 00 00 00
+      Class:                             ELF32
+      Data:                              2's complement, little endian
+      Version:                           1 (current)
+      OS/ABI:                            UNIX - System V
+      ABI Version:                       0
+      Type:                              EXEC (Executable file)
+      Machine:                           Atmel AVR 8-bit microcontroller
+      Version:                           0x1
+      Entry point address:               0x0
+      Start of program headers:          52 (bytes into file)
+      Start of section headers:          1264 (bytes into file)
+      Flags:                             0x67, avr:103
+      Size of this header:               52 (bytes)
+      Size of program headers:           32 (bytes)
+      Number of program headers:         2
+      Size of section headers:           40 (bytes)
+      Number of section headers:         6
+      Section header string table index: 5
+
+The fields to verify for AVR work:
+
+    Field           What to check
+    -----------     ---------------------------------------------------------
+    Machine         Should read "Atmel AVR 8-bit microcontroller". A non-AVR
+                    ELF will not disassemble correctly and avrdude will refuse
+                    it.
+    Entry point     Address where execution begins after reset. 0x0 here
+                    because -nostartfiles places main at the start of flash.
+    Flags: avr:NNN  The architecture variant number. 103 is AVRXMEGA3, the
+                    family containing the ATtiny3217. A mismatch between this
+                    number and your target device means the code was not
+                    compiled for the right core.
+
+The -S flag prints section headers -- the same information as avr-objdump -h
+but in a fixed-column format that is easier to parse with shell scripts or
+Python:
+
+    $ avr-readelf -S blink.elf
+    There are 6 section headers, starting at offset 0x4f0:
+
+    Section Headers:
+      [Nr] Name       Type      Addr     Off    Size   ES Flg Lk Inf Al
+      [ 0]            NULL      00000000 000000 000000 00      0   0  0
+      [ 1] .data      PROGBITS  00803800 00008a 000000 00  WA  0   0  1
+      [ 2] .text      PROGBITS  00000000 000074 000016 00  AX  0   0  2
+      [ 3] .symtab    SYMTAB    00000000 00008c 000240 10      4   9  4
+      [ 4] .strtab    STRTAB    00000000 0002cc 0001fd 00      0   0  1
+      [ 5] .shstrtab  STRTAB    00000000 0004c9 000027 00      0   0  1
+
+The Flg column records section flags:
+
+    Flag   Meaning
+    ----   ---------------------------------------------------------------
+    A      Alloc -- the section occupies device memory at run time.
+    X      Execute -- the CPU can fetch and run instructions from it.
+    W      Write -- the section is writable (RAM).
+
+.text is AX: code in flash that is executable. .data is WA: RAM that is
+writable. The three remaining sections (.symtab, .strtab, .shstrtab) carry
+no flags; they exist only in the ELF file and avr-objcopy drops them before
+producing the .hex.
+
+Building with -g adds several .debug_* sections (also flagged as no-alloc).
+They do not change what goes into flash; they are debug metadata consumed by
+avr-gdb and avr-addr2line.
+
+avr-readelf is most useful when a linker script section directive or
+__attribute__((section("..."))) is not behaving as expected. The -S output
+shows exactly where each section landed, its actual size, and whether it
+received the flags you intended.
+
+
+## avr-addr2line - translate an address to source
+
+avr-addr2line takes an address from a listing, a debugger, or a crash log and
+tells you the source file and line that produced the code at that address. It
+is faster than scrolling through avr-objdump -S when you only need to
+cross-reference a handful of addresses.
+
+The ELF must include debug information. Build with -g:
+
+    avr-gcc -mmcu=attiny3217 -nostartfiles -e main -g blink.S -o blink.elf
+
+Pass one or more addresses with -e to name the ELF file:
+
+    $ avr-addr2line -e blink.elf 0x10
+    /path/to/blink.S:33
+
+Address 0x10 is the sbiw instruction at line 33 -- the body of the countdown
+loop. avr-addr2line resolved it without opening the full disassembly.
+
+You can give several addresses in one call, which is useful when reviewing
+output from avr-gdb's info registers:
+
+    $ avr-addr2line -e blink.elf 0x04 0x08 0x10
+    /path/to/blink.S:24
+    /path/to/blink.S:26
+    /path/to/blink.S:33
+
+The -f flag adds the enclosing function name above each result. Function names
+come from DWARF DW_TAG_subprogram entries, which the assembler only generates
+when a label is declared with a .type directive:
+
+    .type main, @function
+    .type delay, @function
+
+avr-gcc adds those declarations automatically for every C function. For a
+hand-written .S file like blink.S that has no .type declarations, addr2line -f
+outputs ?? in place of the function name. Add the declarations to any .S
+subroutine you want addr2line to name.
+
+If avr-addr2line is missing from your toolchain -- it is part of GNU binutils
+and some GCC-only packages omit it -- the same information is available inside
+avr-gdb: load the ELF and run info line *0x10. avr-addr2line is the faster
+option when you are not already in a debug session.
+
+
+## Other tools at a glance
+
+**avr-gcc as driver.** The build command throughout this appendix is avr-gcc
+rather than avr-as. avr-gcc is a compiler driver: it detects a .S file and
+passes it to avr-as, then passes the resulting .o to avr-ld. It is more
+convenient than calling the tools directly for single-file projects because
+-mmcu=attiny3217 is written once and the driver selects the right linker
+script automatically. Appendices C and D cover avr-as and avr-ld directly;
+use them when you need options the driver does not expose.
+
+**avr-ar and avr-ranlib.** These pack multiple .o files into a static library
+(.a archive) and index it so the linker can extract only the objects it needs.
+For most bare-metal assembly projects you list the .o files directly on the
+linker command line and need no archive. If you build a reusable collection of
+subroutines shared across several projects, create and index the archive with:
+
+    avr-ar cr libfoo.a util1.o util2.o
+    avr-ranlib libfoo.a
+
+Then link against it with avr-ld ... -L. -lfoo.
 
 
 ## Putting it together
