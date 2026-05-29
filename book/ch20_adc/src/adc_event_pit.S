@@ -4,10 +4,12 @@
  * Target: ATtiny3217 Curiosity Nano, factory clock 3.333 MHz.
  *
  * The ATtiny3217 Event System routes hardware events between peripherals
- * without CPU involvement. Here the RTC PIT generates an event every ~1 s
- * (1024 cycles of the 1 kHz internal oscillator). That event is routed
- * through asynchronous event channel 3 to ADC0's event user, which starts
- * a conversion automatically when the event fires.
+ * without CPU involvement. Here the RTC PIT generates an event every ~31 ms
+ * (1024 cycles of the default 32.768 kHz internal RTC oscillator). That event
+ * is routed through asynchronous event channel 3 to ADC0's event user, which
+ * starts a conversion automatically when the event fires. (To get a ~1 s
+ * period instead, select the 1.024 kHz source in RTC_CLKSEL before enabling
+ * the PIT.)
  *
  * Event routing used:
  *   Generator: RTC PIT DIV1024  → EVSYS_ASYNCCH3 generator = 0x0D
@@ -36,7 +38,7 @@
 .equ EVUSER_ASYNCCH3,  0x06
 
 /* RTC_PITCTRLA value: PERIOD field = 9 (CYC1024) and PITEN = 1.
- * PIT period = 1024 RTC cycles at 1 kHz ≈ 1 second between events.
+ * PIT period = 1024 RTC cycles at the default 32.768 kHz ≈ 31 ms.
  * Field PERIOD occupies bits [6:3], so 9 << 3 = 0x48.                      */
 .equ PIT_DIV1024_EN,   ((9 << 3) | RTC_PITEN_bm)
 

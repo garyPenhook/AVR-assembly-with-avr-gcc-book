@@ -1,7 +1,8 @@
 # Integer Filters for ADC and Control
 
 The ADC converts a voltage to a number, but that number is rarely clean. The
-internal 1.1 V reference has a tolerance of roughly ±10%. The sample-and-hold
+internal 1.1 V reference has a tolerance of roughly ±2% (rising to about ±5%
+over the full temperature and voltage range). The sample-and-hold
 capacitor leaks charge during long conversions. Digital switching on the same
 supply rail couples noise into the analog circuitry. A sensor with high source
 impedance cannot charge the S/H capacitor fully in the default sample time.
@@ -119,7 +120,7 @@ k   accum_max   Bits required   Register choice
 7   130944       17              24-bit (3 bytes)
 8   261888       18              24-bit
 10  1047552      20              24-bit
-14  16744448     24              24-bit — maximum for 24-bit accumulator
+14  16760832     24              24-bit — maximum for 24-bit accumulator
 ```
 
 A 16-bit accumulator supports k up to 6. A 24-bit accumulator supports k up to
@@ -140,19 +141,19 @@ sample rates:
 ```
 k    fc at fs=1000 Hz   fc at fs=100 Hz   fc at fs=7992 Hz
 ──────────────────────────────────────────────────────────────────
-1    159 Hz             15.9 Hz           1271 Hz
-2    79.6 Hz            7.96 Hz           635 Hz
-3    39.8 Hz            3.98 Hz           318 Hz
-4    9.95 Hz            0.995 Hz          159 Hz  (table 1 kHz row)
-6    2.49 Hz            0.249 Hz          20.0 Hz
-8    0.622 Hz           0.062 Hz          4.98 Hz
-10   0.155 Hz           —                 1.24 Hz
+1    79.6 Hz            7.96 Hz           636 Hz
+2    39.8 Hz            3.98 Hz           318 Hz
+3    19.9 Hz            1.99 Hz           159 Hz
+4    9.95 Hz            0.995 Hz          79.5 Hz
+6    2.49 Hz            0.249 Hz          19.9 Hz
+8    0.622 Hz           0.0622 Hz         4.97 Hz
+10   0.155 Hz           0.0155 Hz         1.24 Hz
 ```
 
 Approximate formula derivation: the EMA transfer function is
 `H(z) = α / (1 − (1−α) z⁻¹)` where `α = 1/2^k`. For small α, the −3 dB
 radian frequency is `ω_c ≈ α`, so `fc ≈ fs × α / (2π) = fs / (2^k × 2π)`.
-The approximation is within 3% for k ≥ 3.
+The approximation is within a few percent for k ≥ 4 (about 6% at k = 3).
 
 ### Assembly: 16-bit Accumulator (k = 4)
 
@@ -212,9 +213,10 @@ ema16_k4:
 ```
 
 Cycle count: 2 LDS (6) + MOVW (1) + 4×(LSR+ROR) (8) + 2×SUB/SBC + 2×ADD/ADC (4) +
-2 STS (4) + MOVW (1) + 4×(LSR+ROR) (8) + RET (4) = **36 cycles** plus 3 for RCALL.
+2 STS (4) + MOVW (1) + 4×(LSR+ROR) (8) + RET (4) = **36 cycles** plus 2 for the
+RCALL (AVRxt timing).
 
-At 1 kHz sample rate: 39 of the 3333 cycles per sample period = 1.2% CPU.
+At 1 kHz sample rate: 38 of the 3333 cycles per sample period = 1.1% CPU.
 
 The shift uses logical right shift (LSR/ROR) because the accumulator is
 unsigned. The signed arithmetic right shift (ASR/ROR) is used for signed values;
@@ -321,7 +323,7 @@ discarded. The `sub r19, r20` / `sbc r20, r21` / `sbc r21, r1` chain performs
 the subtraction in one pass without needing a temporary copy.
 
 Cycle count: 3 LDS (9) + 3×(SUB/SBC) (3) + 3×(ADD/ADC) (3) + 3 STS (6) +
-MOVW (1) + RET (4) = **26 cycles** plus 3 for RCALL.
+MOVW (1) + RET (4) = **26 cycles** plus 2 for the RCALL (AVRxt timing).
 
 The 24-bit version is actually *cheaper* than the 16-bit version because the
 shift-by-8 is free (byte movement).
@@ -427,7 +429,7 @@ The `LD r18, Z+` / `LD r19, Z` pair reads the little-endian 16-bit sample from
 the circular buffer without modifying the entry. After both reads, Z points at
 the high-byte slot. `ST Z, r25` writes the new high byte; `ST -Z, r24`
 pre-decrements Z and writes the new low byte. After those two stores, the entry
-in flash holds the new sample in the correct little-endian layout.
+in SRAM holds the new sample in the correct little-endian layout.
 
 `LDS` and `STS` use a direct 16-bit address encoded in the instruction word.
 They do not use or disturb the Z register. Loading the sum into r30:r31 does not
@@ -593,7 +595,9 @@ low-pass filter with a steeper rolloff: the response falls at approximately
 ### SRAM Layout
 
 Two independent accumulators, one per stage. This example uses k = 5 for each
-stage (equivalent cutoff to k = 6.5 in a single-stage EMA):
+stage. Cascading two identical single-pole stages puts the combined −3 dB point
+at about 0.64× a single stage's cutoff (≈ the cutoff of a single-stage EMA with
+k ≈ 5.6), but with a steeper second-order rolloff:
 
 ```asm
 .section .bss
@@ -606,8 +610,8 @@ ema2_accum1: .byte 0, 0          /* Stage 2 accumulator (k=5, 16-bit)           
 ```asm
 /* ema2_k5_update — two cascaded EMA stages, k=5 each
  *
- * Effective single-stage equivalent: approximately k=7 rolloff
- * fc ≈ fs / (2^5 × 2π) per stage; cascaded fc is lower
+ * Second-order (40 dB/decade) rolloff; combined -3 dB cutoff ≈ single-stage k≈5.6
+ * fc ≈ fs / (2^5 × 2π) per stage; cascaded fc is lower (≈ 0.64× per-stage fc)
  *
  * Entry: R25:R24 = new ADC sample (0..1023)
  * Exit:  R25:R24 = filtered output (0..1023)
@@ -952,11 +956,15 @@ of the N (negative) and V (overflow) flags after a CP/CPC sequence. The 32-bit
 signed comparison CP + CPC + CPC + CPC works correctly because each CPC
 propagates the carry and updates the V flag.
 
-The clamp bounds in SRAM (`pid_I_min`, `pid_I_max`) should be set during
-initialisation based on the actuator range and the expected steady-state error:
+The clamp bounds in SRAM (`pid_I_min`, `pid_I_max`, `pid_out_min`,
+`pid_out_max`) should be set during initialisation based on the actuator range
+and the expected steady-state error. This example clamps the integral to
+±16384 and the output to ±1023 (a stand-in for a 10-bit actuator command; pick
+values that match your real actuator):
 
 ```asm
-/* Set I_min = −16384 (0xFFFFC000), I_max = +16384 (0x00004000) */
+/* Set I_min/I_max = ∓16384 (0xFFFFC000 / 0x00004000)
+ * and out_min/out_max = ∓1023 (0xFC01 / 0x03FF, signed 16-bit) */
 pid_init_clamps:
     ldi   r16, 0x00
     ldi   r17, 0xC0
@@ -975,6 +983,18 @@ pid_init_clamps:
     sts   pid_I_max+1, r17
     sts   pid_I_max+2, r18
     sts   pid_I_max+3, r19
+
+    /* out_min = −1023 = 0xFC01 */
+    ldi   r16, 0x01
+    ldi   r17, 0xFC
+    sts   pid_out_min,   r16
+    sts   pid_out_min+1, r17
+
+    /* out_max = +1023 = 0x03FF */
+    ldi   r16, 0xFF
+    ldi   r17, 0x03
+    sts   pid_out_max,   r16
+    sts   pid_out_max+1, r17
     ret
 ```
 
@@ -989,46 +1009,105 @@ pid_init_clamps:
  * Clobbers: many registers — this is a top-level routine
  */
 pid_update:
-    /* Compute signed error = setpoint - y */
+    /* Compute signed error = setpoint - y.
+     * The P, I, and D helper routines between clobber r16..r27, so every value
+     * that must survive across them is held on the stack, not in registers.    */
     sub   r24, r22
     sbc   r25, r23               /* r25:r24 = sp − y (signed error)              */
+    movw  r18, r24               /* r19:r18 = error (survives pid_compute_P)     */
 
-    push  r24                    /* save error for each P, I, D call              */
+    push  r22                    /* save current y (for the D term)              */
+    push  r23
+
+    /* P term (input: error in r25:r24) */
+    rcall pid_compute_P          /* r25:r24 = P_term (clobbers only r24:r25)     */
+    push  r24                    /* save P_term on the stack                     */
     push  r25
 
-    /* P term */
-    rcall pid_compute_P          /* r25:r24 = P_term                             */
-    movw  r16, r24               /* save P_term in r17:r16                       */
-
-    /* I term */
-    pop   r25
-    pop   r24
-    push  r24
-    push  r25
+    /* I term (input: error) */
+    movw  r24, r18               /* r25:r24 = error                              */
     rcall pid_compute_I          /* r25:r24 = I_term                             */
-    rcall pid_clamp_I            /* clamp integral accumulator                   */
-    movw  r18, r24               /* save I_term in r19:r18                       */
+    rcall pid_clamp_I            /* clamp accumulator (leaves r25:r24 untouched) */
+    push  r24                    /* save I_term on the stack                     */
+    push  r25
 
-    /* D term (uses current y = caller's r23:r22, passed via saved y_prev) */
-    /* In this simplified example, y is already in pid_y_prev from last call */
-    /* Load current y into r25:r24 and compute D */
-    pop   r24
-    pop   r25
-    /* Restore y from argument — in a full implementation, pass y explicitly */
-    movw  r24, r22               /* r25:r24 = current y for D computation        */
+    /* Recover terms. Stack top→bottom holds: I_term, P_term, y */
+    pop   r25                    /* I_term high                                  */
+    pop   r24                    /* I_term low  → r25:r24 = I_term               */
+    pop   r19                    /* P_term high                                  */
+    pop   r18                    /* P_term low  → r19:r18 = P_term               */
+    add   r24, r18
+    adc   r25, r19               /* r25:r24 = I_term + P_term                     */
+
+    pop   r21                    /* y high                                       */
+    pop   r20                    /* y low       → r21:r20 = y                     */
+
+    /* D term (input: current y); preserve the running sum across the call */
+    push  r24                    /* save (I+P) low                               */
+    push  r25                    /* save (I+P) high                              */
+    movw  r24, r20               /* r25:r24 = current y                          */
     rcall pid_compute_D          /* r25:r24 = D_term                             */
 
-    /* For low-noise D term, pass through EMA before using: */
+    /* For a low-noise D term, filter it before summing, e.g.:                   */
     /* rcall ema16_k4            (optional: smooth the derivative)               */
 
-    /* Sum: u = P + I + D */
-    add   r24, r16
-    adc   r25, r17               /* u += P_term                                  */
+    pop   r19                    /* (I+P) high                                   */
+    pop   r18                    /* (I+P) low   → r19:r18 = I_term + P_term       */
     add   r24, r18
-    adc   r25, r19               /* u += I_term                                  */
-    /* r25:r24 = P + I + D = controller output u                                 */
+    adc   r25, r19               /* r25:r24 = P + I + D = raw controller output    */
+
+    rcall pid_clamp_out          /* clamp u to the actuator output range          */
     ret
 ```
+
+### Output Clamping
+
+The integral clamp (`pid_clamp_I`) bounds one term; the *output* clamp bounds
+the sum. Real actuators have a finite range — a PWM duty cycle between 0 and
+TOP, a DAC code, a current limit — and the controller must never command beyond
+it. Clamping the final `u` is what makes the integral clamp meaningful: the two
+together implement saturation with anti-windup. Without the output clamp, a
+saturated command is silently truncated by the actuator's own limits and the
+integrator has no consistent bound to work against.
+
+`pid_clamp_out` clamps the signed 16-bit output to `[pid_out_min, pid_out_max]`.
+It is the 16-bit analogue of `pid_clamp_I`: a signed `CP`/`CPC` compare against
+each bound, then a conditional `MOVW` to the bound when the output is outside it.
+
+```asm
+/* pid_clamp_out — clamp signed 16-bit output u to [pid_out_min, pid_out_max]
+ *
+ * Entry: R25:R24 = u (raw controller output, signed 16-bit)
+ * Exit:  R25:R24 = u clamped to [pid_out_min, pid_out_max]
+ * Clobbers: R18, R19
+ */
+pid_clamp_out:
+    /* u < out_min? */
+    lds   r18, pid_out_min
+    lds   r19, pid_out_min+1
+    cp    r24, r18
+    cpc   r25, r19               /* flags for u − out_min                        */
+    brge  .Lco_check_max         /* u >= out_min: check the upper bound           */
+    movw  r24, r18               /* u < out_min: clamp to out_min                 */
+    ret
+
+.Lco_check_max:
+    /* u > out_max? */
+    lds   r18, pid_out_max
+    lds   r19, pid_out_max+1
+    cp    r24, r18
+    cpc   r25, r19               /* flags for u − out_max                        */
+    brlt  .Lco_done              /* u < out_max: already within bounds            */
+    movw  r24, r18               /* u >= out_max: clamp to out_max                */
+
+.Lco_done:
+    ret
+```
+
+As with the integral clamp, `BRGE`/`BRLT` make the comparison signed, so a
+negative output below `pid_out_min` is detected correctly rather than being
+treated as a large unsigned value. `MOVW r24, r18` copies the 16-bit bound into
+the output pair in one cycle.
 
 In a real application, the PID structure is called from a timer ISR or a
 tick-driven scheduler task once per control sample period. The control period
@@ -1057,11 +1136,11 @@ Filter                SRAM bytes   Notes
 ──────────────────────────────────────────────────────────────────────────────
 EMA, 16-bit accum     2            k ≤ 6
 EMA, 24-bit accum     3            k ≤ 14
-Box, N=8              17           16-byte buffer + 2-byte sum + 1-byte idx
+Box, N=8              19           16-byte buffer + 2-byte sum + 1-byte idx
 Box, N=16             35
 Median (3-sample)     4            2 × 16-bit history samples
 Cascaded EMA ×2       4 or 6       two independent accumulators
-PID                   12           I_accum (4) + y_prev (2) + clamps (6)
+PID                   18           I_accum(4) + y_prev(2) + I clamps(8) + out clamps(4)
 ```
 
 ---
@@ -1082,7 +1161,8 @@ the shift chain.
 A 16-bit accumulator overflows when `k > 6` for a 10-bit ADC. Symptoms: output
 wraps around or jumps suddenly when the input is near the top of range.
 
-Check before using: `k × log2(10) + 10 ≤ accumulator_width_bits`.
+Check before using: `k + 10 ≤ accumulator_width_bits` (the input needs about
+10 bits, since `log2(1023) ≈ 10`, and the scaling adds k bits).
 For k=6: 6 + 10 = 16 → exactly at the limit. ✓ for k ≤ 6; use 24-bit for k=7+.
 
 ### Pitfall 3 — Not Initialising the Accumulator
@@ -1156,8 +1236,8 @@ PID structure
   P = error >> p_shift           (or << for gain > 1)
   I += (error >> Ki_shift)       with anti-windup clamp
   D = (y_prev − y) << Kd_shift  then EMA on D
-  u = P + I + D
-  Integral accumulator: 32-bit signed; clamp to actuator range
+  u = clamp(P + I + D, out_min, out_max)
+  Integral accumulator: 32-bit signed; clamp it AND clamp the output u
 
 Initialisaton matters:
   zero all filter state in reset_handler (not done by -nostartfiles)
