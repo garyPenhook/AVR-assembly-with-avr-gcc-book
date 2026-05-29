@@ -7,3 +7,4 @@ book/output/*
 book/output/pdf/*
 !book/output/pdf/avr-assembly-programming.pdf
 .cursor/
+.claude/
