@@ -498,17 +498,20 @@ output from avr-gdb's info registers:
     /path/to/blink.S:26
     /path/to/blink.S:33
 
-The -f flag adds the enclosing function name above each result. Function names
-come from DWARF DW_TAG_subprogram entries, which the assembler only generates
-when a label is declared with a .type directive:
+The -f flag adds the enclosing function name above each result. addr2line takes
+that name from the ELF symbol table: it reports the nearest function-typed
+(STT_FUNC) symbol at or before the address. A plain assembly label is not
+function-typed unless you mark it with a .type directive:
 
     .type main, @function
     .type delay, @function
 
-avr-gcc adds those declarations automatically for every C function. For a
-hand-written .S file like blink.S that has no .type declarations, addr2line -f
-outputs ?? in place of the function name. Add the declarations to any .S
-subroutine you want addr2line to name.
+avr-gcc emits that marking automatically for every C function. A hand-written
+.S file like blink.S has none, so its labels stay untyped and addr2line -f
+prints ?? in place of the name. The file and line still resolve correctly --
+those come from the DWARF .debug_line table that -g always generates; only the
+function name depends on the symbol type. Add a .type directive to any .S
+subroutine you want addr2line -f to name.
 
 If avr-addr2line is missing from your toolchain -- it is part of GNU binutils
 and some GCC-only packages omit it -- the same information is available inside
