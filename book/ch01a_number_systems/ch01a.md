@@ -91,7 +91,9 @@ Decimal   Binary
 
 255 is the largest value in 8 bits; all bits are 1. The next count would be
 256, which requires 9 bits: `1 0000 0000`. In an 8-bit register, adding 1 to
-255 wraps back to 0 and sets the carry flag.
+255 wraps back to 0; an `ADD`, `ADC`, `ADIW`, or `SUBI` that does this also
+sets the carry flag. (The dedicated `INC` instruction wraps 255→0 too, but on
+AVR it does *not* affect the carry flag — only the Z, N, V, and S flags.)
 
 ### Bit Terminology
 
@@ -122,7 +124,8 @@ LSB = Least Significant Bit (bit 0 in an 8-bit byte)
 ```
 
 Bit 7 is the **sign bit** under signed (two's complement) interpretation:
-if bit 7 is 1, the value is negative. This is explored in depth in Chapter 5b.
+if bit 7 is 1, the value is negative. This is explored in depth in Chapter 8
+(Signed Arithmetic).
 
 ### Converting Binary to Decimal
 
@@ -177,9 +180,11 @@ These values appear constantly in AVR programming:
 ```
 
 The ATtiny3217 has 32 KB = 32,768 bytes of flash (= 2¹⁵), 2 KB = 2,048 bytes
-of SRAM (= 2¹¹), and 256 bytes of EEPROM (= 2⁸). These map directly to bit
-widths: a 15-bit address can reach the last byte of flash; an 11-bit address
-can reach the last byte of SRAM.
+of SRAM (= 2¹¹), and 256 bytes of EEPROM (= 2⁸). These sizes map directly to
+bit widths: a 15-bit index spans all of flash, and an 11-bit index spans all of
+SRAM. (The *absolute* data-space addresses are larger — SRAM is mapped at
+0x3800–0x3FFF, so a real SRAM address needs 14 bits — but the size of each
+region is set by these powers of two.)
 
 ### Binary Notation in GAS Source
 
@@ -362,7 +367,7 @@ Dec   Hex   Binary      Dec   Hex   Binary      Dec   Hex   Binary
  25   19    0001 1001   111   6F    0110 1111   196   C4    1100 0100
  26   1A    0001 1010   112   70    0111 0000   197   C5    1100 0101
  27   1B    0001 1011   113   71    0111 0001   198   C6    1100 0110
- 28   1C    0001 1001   114   72    0111 0010   199   C7    1100 0111
+ 28   1C    0001 1100   114   72    0111 0010   199   C7    1100 0111
  29   1D    0001 1101   115   73    0111 0011   200   C8    1100 1000
  30   1E    0001 1110   116   74    0111 0100   201   C9    1100 1001
  31   1F    0001 1111   117   75    0111 0101   202   CA    1100 1010
@@ -654,31 +659,43 @@ requires a low-nibble correction.
  *   Output: r16 = BCD sum (0x00–0x99)
  *           C=1 if sum >= 100 (decimal carry out of tens digit)
  *   Clobbers: r18, r19
+ *
+ * The binary add's carry and half-carry drive the corrections, but the
+ * low-nibble fix would clobber them — so we snapshot the carry into r19
+ * straight away, read H (still valid) for the low-nibble test, and use real
+ * ADDs for the corrections so their carry-out stays meaningful.
  */
 bcd_add:
     add  r16, r17           ; binary add: result may not be valid BCD
-
-    ; ── Low nibble correction ────────────────────────────────────────────
-    ; Correct if H=1 (half-carry set) or low nibble > 9
-    brhs bcd_low_fix        ; H=1: low nibble overflowed → need +6
+    clr  r19                ; r19 = pending tens carry-out (0 or 1)
+    brcc bcd_add_lowchk     ; did the binary add overflow the byte?
+    inc  r19                ;   yes → carry out of the tens digit
+bcd_add_lowchk:
+    ; ── Low nibble correction: +6 if H=1 (half-carry) or low nibble > 9 ──
+    brhs bcd_add_lowfix     ; H=1: low nibble carried out of bit 3
     mov  r18, r16
     andi r18, 0x0F          ; isolate low nibble
-    cpi  r18, 10
-    brlo bcd_low_ok         ; low nibble <= 9: no correction needed
-bcd_low_fix:
-    subi r16, -6            ; r16 += 6  (subi with negated constant)
-bcd_low_ok:
-
-    ; ── High nibble correction ───────────────────────────────────────────
-    ; Correct if C=1 (carry set) or high nibble > 9
-    brcs bcd_high_fix       ; C=1: high nibble (tens) overflowed → need +60
+    cpi  r18, 0x0A
+    brlo bcd_add_lowok      ; low nibble <= 9: no correction needed
+bcd_add_lowfix:
+    ldi  r18, 0x06
+    add  r16, r18           ; r16 += 6 via real ADD → C is a true byte carry
+    brcc bcd_add_lowok
+    ldi  r19, 1             ; the +6 overflowed the byte → tens carry-out
+bcd_add_lowok:
+    ; ── High nibble correction: +0x60 if a carry is pending or high > 9 ──
+    tst  r19
+    brne bcd_add_highfix    ; carry pending → tens digit must wrap
     mov  r18, r16
     andi r18, 0xF0          ; isolate high nibble
-    cpi  r18, 0xA0          ; high nibble > 9? (0xA0 = 10 in high nibble position)
-    brlo bcd_high_ok
-bcd_high_fix:
-    subi r16, -0x60         ; r16 += 0x60
-bcd_high_ok:
+    cpi  r18, 0xA0          ; high nibble > 9? (0xA0 = 10 in high-nibble position)
+    brlo bcd_add_done
+bcd_add_highfix:
+    ldi  r18, 0x60
+    add  r16, r18           ; r16 += 0x60
+    ldi  r19, 1             ; sum >= 100 → decimal carry out
+bcd_add_done:
+    lsr  r19                ; move tens carry-out (bit 0) into the C flag
     ret
 ```
 
@@ -705,14 +722,14 @@ Result: 0x67 = BCD 67 = decimal 67  ✓  (29 + 38 = 67)
 ```
 ADD r16(0x75), r17(0x48):
   0x75 + 0x48 = 0xBD
-  Low nibble: 5 + 8 = 13 = 0xD → H=1 (carry out of bit 3)
-  High nibble: 7 + 4 + 1(H carry) = 12 = 0xC → C=0 (no overflow out of byte)
+  Low nibble: 5 + 8 = 13 = 0xD → no carry out of bit 3, so H=0 (13 < 16)
+  High nibble: 7 + 4 = 11 = 0xB → C=0 (no overflow out of the byte)
 
-Low correction: H=1 → add 6
+Low correction: H=0, but low nibble 0xD > 9 → add 6
   0xBD + 0x06 = 0xC3
-  (Note: this generated no carry; C stays 0)
+  (no carry out of the byte from the +6; the tens carry stays 0)
 
-High correction: C=0; high nibble of 0xC3 = 0xC0 = 12 (> 9) → add 0x60
+High correction: no carry pending, but high nibble 0xC > 9 → add 0x60
   0xC3 + 0x60 = 0x123 → byte portion = 0x23, C=1
 
 Result: 0x23 with C=1
@@ -730,27 +747,35 @@ subtracting 6:
  * bcd_sub — subtract packed BCD (r16 - r17)
  *   Input:  r16 = minuend (0x00–0x99)
  *           r17 = subtrahend (0x00–0x99)
- *   Output: r16 = BCD difference
- *           C=1 if borrow (result was negative; result is 100 + true_result)
- *   Clobbers: r18
+ *   Output: r16 = BCD difference (0x00–0x99)
+ *           C=1 if borrow (r16 < r17); the result is then the ten's-complement
+ *           BCD form, i.e. 100 - (r17 - r16)
+ *   Clobbers: r18, r19
  *
- * Precondition: r16 >= r17 for a clean non-negative result.
- * If r16 < r17, C=1 and the result is the BCD borrow form (100 - diff).
+ * As with bcd_add, the binary subtract's borrow (C) is needed for the
+ * tens-digit correction but would be clobbered by the low-nibble fix, so we
+ * snapshot it into r19 first and use a real SUB for the correction.
  */
 bcd_sub:
-    sub  r16, r17           ; binary subtract
-
+    sub  r16, r17           ; binary subtract; H = half-borrow, C = byte borrow
+    clr  r19                ; r19 = pending borrow-out (0 or 1)
+    brcc bcd_sub_lowchk     ; did the subtract borrow out of the byte?
+    inc  r19                ;   yes → result is negative
+bcd_sub_lowchk:
     ; Low nibble correction: if H=1 (half-borrow), subtract 6
-    brhs bcd_sub_low_fix
-    rjmp bcd_sub_low_ok
-bcd_sub_low_fix:
-    subi r16, 6             ; r16 -= 6
-bcd_sub_low_ok:
-
-    ; High nibble correction: if C=1 (borrow), subtract 0x60
-    brcc bcd_sub_high_ok
-    subi r16, 0x60          ; r16 -= 0x60
-bcd_sub_high_ok:
+    brhc bcd_sub_lowok      ; H=0: low nibble did not borrow
+    ldi  r18, 0x06
+    sub  r16, r18           ; r16 -= 6 via real SUB → C is a true byte borrow
+    brcc bcd_sub_lowok
+    ldi  r19, 1             ; the -6 borrowed past the byte
+bcd_sub_lowok:
+    ; High nibble correction: if a borrow is pending, subtract 0x60
+    tst  r19
+    breq bcd_sub_done
+    ldi  r18, 0x60
+    sub  r16, r18           ; r16 -= 0x60 (forms the ten's-complement BCD)
+bcd_sub_done:
+    lsr  r19                ; move borrow-out (bit 0) into the C flag
     ret
 ```
 
@@ -765,7 +790,7 @@ SUB r16(0x73), r17(0x28):
 Low correction: H=1 → subtract 6
   0x4B - 0x06 = 0x45
 
-High correction: C=0 → no correction
+High correction: no borrow pending → no correction
 
 Result: 0x45 = BCD 45  ✓  (73 - 28 = 45)
 ```
@@ -975,21 +1000,23 @@ Since the low nibble holds the units digit in packed BCD, H=1 is precisely the
 signal that the units digit overflowed and needs correction.
 
 ```
-ADD r16, r17 where r16 = 0x08 (BCD 8), r17 = 0x06 (BCD 6):
+ADD r16, r17 where r16 = 0x08 (BCD 8), r17 = 0x08 (BCD 8):
 
-Binary: 0x08 + 0x06 = 0x0E
-          bit 3 sum: 0 + 0 + carry_in_from_bit2 = ?
+Binary: 0x08 + 0x08 = 0x10
+          the addition column by column:
           
           0000 1000
-        + 0000 0110
+        + 0000 1000
           ─────────
-          0000 1110 = 0x0E
+          0001 0000 = 0x10
           
-          Carry from bit 3 to bit 4? 1+0+carry_bits: actually bit 3 of
-          result is (1+1=10), carry out of bit 3 = 1 → H=1
+          Bit 3: 1 + 1 = 10 → a carry leaves bit 3 and enters bit 4,
+          so the half-carry flag is set → H=1
 
-H=1 signals: units nibble produced a carry (8 + 6 = 14, wrapped in BCD terms)
-→ Add 6 to correct: 0x0E + 0x06 = 0x14 = BCD 14  ✓  (8 + 6 = 14)
+H=1 signals: the units nibble overflowed (8 + 8 = 16). Note the low nibble of
+the result is 0 — so the "low nibble > 9" test alone would miss this; the H
+flag is what catches it.
+→ Add 6 to correct: 0x10 + 0x06 = 0x16 = BCD 16  ✓  (8 + 8 = 16)
 ```
 
 This is why H exists in the AVR status register even though most arithmetic
@@ -1124,4 +1151,4 @@ Binary ↔ BCD:
 
 ---
 
-*Next: Chapter 2 — AVR Architecture Overview*
+*Next: Chapter 3 — AVR Architecture Overview*
