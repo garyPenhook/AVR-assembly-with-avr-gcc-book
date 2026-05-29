@@ -12,7 +12,7 @@ manipulation instructions, and the patterns built from them — masking, field
 extraction, field insertion, packing, and unpacking.
 
 Shifts and rotates used for arithmetic (multiplying or dividing by powers of
-two) are revisited in Chapter 6. This chapter treats them as bit-movement
+two) are revisited in Chapter 13. This chapter treats them as bit-movement
 tools.
 
 ---
@@ -165,7 +165,7 @@ com  r16
 Primary uses:
 - Building inverted masks at runtime when the positive mask is already computed
 - First step of two's complement negation (COM then INC — same as NEG)
-- Multi-byte negation (COM all bytes, then add 1 — see Chapter 5c)
+- Multi-byte negation (COM all bytes, then add 1 — see Chapter 10)
 
 COM is **not** arithmetic negation. `COM r16` gives `~r16`; `NEG r16` gives
 `-r16 = ~r16 + 1`. For single-byte negate, use NEG. For multi-byte negate,
@@ -1345,4 +1345,4 @@ Population count:    8-iteration loop: LSR source → C → ADC count, r1.
 
 ---
 
-*Next: Chapter 6 — Shifts, Multiply, and Division*
+*Next: Chapter 12 — Fixed-Point Arithmetic*

@@ -124,7 +124,7 @@ LSB = Least Significant Bit (bit 0 in an 8-bit byte)
 ```
 
 Bit 7 is the **sign bit** under signed (two's complement) interpretation:
-if bit 7 is 1, the value is negative. This is explored in depth in Chapter 8
+if bit 7 is 1, the value is negative. This is explored in depth in Chapter 9
 (Signed Arithmetic).
 
 ### Converting Binary to Decimal

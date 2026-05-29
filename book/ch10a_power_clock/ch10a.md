@@ -331,7 +331,7 @@ Microchip source notes:
 
 1. Change `clock_prescale.S` to use `/24` instead of `/48`. What byte should
    `MCLKCTRLB` receive?
-2. Recalculate the Chapter 11 TCA0 `CMP0` value for a 20 MHz clock with the
+2. Recalculate the Chapter 19 TCA0 `CMP0` value for a 20 MHz clock with the
    timer prescaler still set to 1024.
 3. Change `sleep_pit.S` from PIT period field value `0x09` (1024 cycles) to
    `0x0A` (2048 cycles). How often should the LED toggle from the 1 kHz PIT

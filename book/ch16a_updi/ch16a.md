@@ -487,13 +487,13 @@ Step  Action
 5.    STCS ASI_RESET_REQ ← 0x00   (release system reset)
 6.    LDCS ASI_SYS_STATUS → poll until NVMPROG bit = 1.
 7.    Write data to flash via STS / ST + REPEAT targeting mapped flash.
-      (Use NVMCTRL commands: see Chapter 16 for the NVMCTRL write flow.)
+      (Use NVMCTRL commands: see Chapter 25 for the NVMCTRL write flow.)
 8.    STCS ASI_RESET_REQ ← 0x59   (assert reset to end programming)
 9.    STCS ASI_RESET_REQ ← 0x00   (release reset)
 10.   Programming complete. UPDI regains access; CPU is running.
 ```
 
-Writing to flash via UPDI follows exactly the NVMCTRL sequence from Chapter 16
+Writing to flash via UPDI follows exactly the NVMCTRL sequence from Chapter 25
 (page-buffer fill → `PAGEERASEWRITE` command), except the CPU is halted and
 the programmer drives every store.
 
@@ -938,7 +938,7 @@ writes but is more portable and easier to script for custom workflows.
 ## On-Chip Debugging (OCD) via UPDI
 
 The same UPDI pin that programs the device also provides the debugging channel
-used in Chapter 3A. The OCD controller is accessed through the UPDI ACC layer
+used in Chapter 5. The OCD controller is accessed through the UPDI ACC layer
 with no additional wiring.
 
 OCD capabilities on the ATtiny3217:
@@ -960,7 +960,7 @@ Sleep mode debugging            CLKREQ bit keeps ACC layer accessible in sleep
 The OCD debug key (required to unlock OCD Stop mode for full register access)
 is not published in the public datasheet but is available to tools like
 avarice and openOCD that speak to the ATtiny3217 via the Curiosity Nano's
-nEDBG. The GDB + avarice flow described in Chapter 3A uses this path.
+nEDBG. The GDB + avarice flow described in Chapter 5 uses this path.
 
 ---
 

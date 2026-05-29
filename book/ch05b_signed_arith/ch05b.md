@@ -707,7 +707,7 @@ ldi  r16, 0xD8      ; = −40 signed
 clr  r17            ; r17:r16 = 0x00D8 = +216 — completely wrong!
 ```
 
-Zero extension is correct only for unsigned values (see Chapter 5a). For signed
+Zero extension is correct only for unsigned values (see Chapter 8). For signed
 values, you must sign-extend.
 
 ### The Sign Extension Pattern
@@ -1215,4 +1215,4 @@ Common pitfalls:
 
 ---
 
-*Next: Chapter 5c — Multi-byte Addition, Subtraction, Comparison, and Negation*
+*Next: Chapter 10 — Multi-byte Addition, Subtraction, Comparison, and Negation*

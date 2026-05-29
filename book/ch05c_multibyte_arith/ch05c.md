@@ -1,6 +1,6 @@
 # Multi-byte Addition, Subtraction, Comparison, and Negation
 
-Chapters 5a and 5b established the rules for 8-bit and 16-bit arithmetic. This
+Chapters 8 and 9 established the rules for 8-bit and 16-bit arithmetic. This
 chapter takes the same carry-chain principle and pushes it to 24 bits, 32 bits,
 and arbitrary width. The operations — addition, subtraction, comparison, and
 negation — stay the same. What changes is understanding exactly how the carry
@@ -15,7 +15,7 @@ practical subroutines for 32-bit counters, accumulators, and comparisons.
 
 ## The Carry Chain Principle
 
-Chapter 5a introduced the two-byte carry chain for 16-bit arithmetic:
+Chapter 8 introduced the two-byte carry chain for 16-bit arithmetic:
 
 ```asm
 add  r24, r22       ; low bytes: r24 = r24 + r22, C updated
@@ -1257,4 +1257,4 @@ INC/DEC pitfall: these do NOT update C — never use them inside a carry chain.
 
 ---
 
-*Next: Chapter 5d — Bit Math: Masks, Shifts, Rotates, Packing, and Field Extraction*
+*Next: Chapter 11 — Bit Math: Masks, Shifts, Rotates, Packing, and Field Extraction*

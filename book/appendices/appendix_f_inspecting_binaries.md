@@ -10,7 +10,7 @@ three questions:
 
 The GNU AVR toolchain answers each of these with a small, sharp tool:
 avr-size, avr-objdump, and avr-objcopy. The assembler (avr-as, see Appendix C),
-the linker (avr-ld, see Appendix D), the debugger (avr-gdb, see Chapter 3a),
+the linker (avr-ld, see Appendix D), the debugger (avr-gdb, see Chapter 5),
 and avrdude (Appendix E) are covered elsewhere. This appendix covers those three
 core tools and three supporting tools---avr-nm, avr-readelf, and
 avr-addr2line---that help you understand and diagnose the ELF the linker
@@ -201,11 +201,11 @@ Three things worth pointing out in this listing:
   - sbi 0x00, 3 and sbi 0x01, 3 are your VPORTA_DIR and VPORTA_OUT writes.
     objdump prints the raw I/O address because the .equ names are not in the
     binary; this is exactly why VPORT registers must sit in low I/O for
-    sbi/cbi to reach them (see Chapter 9).
+    sbi/cbi to reach them (see Chapter 16).
   - The two rcall delay lines encode to different offsets (.+6 and .+2) even
     though they call the same routine, because the offset is measured from
     each call site. This is the relative-branch behaviour discussed in
-    Chapter 7.
+    Chapter 14.
 
 If you assemble with debug info (-g), avr-objdump can interleave your source
 lines with the disassembly using -S:

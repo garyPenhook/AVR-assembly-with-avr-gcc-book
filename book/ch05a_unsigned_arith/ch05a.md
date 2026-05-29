@@ -1188,7 +1188,7 @@ Key rules:
 7. Implement `mul8_scale(r16, r17) → r16`: multiply r16 by the fraction r17
    where r17 represents 0/255 to 255/255. Return the scaled result in r16.
    (Hint: use MUL and take the high byte of the 16-bit product.) This is the
-   8-bit fraction scaling trick introduced in Chapter 6.
+   8-bit fraction scaling trick introduced in Chapter 13.
 
 8. Write a subroutine that counts the number of consecutive zero-bytes in an
    SRAM buffer starting at address in X (r27:r26), up to a maximum of 255.
@@ -1197,4 +1197,4 @@ Key rules:
 
 ---
 
-*Next: Chapter 5b — Signed Arithmetic, Two's Complement, and Sign Extension*
+*Next: Chapter 9 — Signed Arithmetic, Two's Complement, and Sign Extension*

@@ -58,7 +58,7 @@ When the accumulator holds 0, the phase is 0°. When it holds 2^(N-1), the
 phase is 180°. When it overflows from 2^N-1 back to 0, it completes one full
 cycle.
 
-This is identical to Binary Angular Measure (BAM), which Chapter 19 uses for
+This is identical to Binary Angular Measure (BAM), which Chapter 29 uses for
 the CORDIC angle format. A 16-bit phase accumulator is a 16-bit BAM counter.
 
 ### Visualising the Accumulator
@@ -1089,7 +1089,7 @@ noise. To minimise this:
 
 ## Relationship to CORDIC
 
-Chapter 19 shows that the CORDIC algorithm can generate sine and cosine from a
+Chapter 29 shows that the CORDIC algorithm can generate sine and cosine from a
 phase angle with no waveform table at all, at the cost of about 12 shift-add
 stages per sample. The two approaches trade differently:
 
@@ -1106,7 +1106,7 @@ same phase (e.g., I/Q generation), or when the phase is already in BAM16 from
 some other computation.
 
 The phase accumulator described in this chapter is format-compatible with the
-BAM16 angles used by the CORDIC routines in Chapter 19. The high byte of the
+BAM16 angles used by the CORDIC routines in Chapter 29. The high byte of the
 16-bit DDS accumulator (0x00–0xFF) maps to angles 0°–360° in 256 steps. The
 CORDIC routines expect BAM16 (0x0000–0xFFFF). The relationship is:
 
@@ -1210,4 +1210,4 @@ Microchip source notes:
 
 ---
 
-*Next: Chapter 19 — CORDIC on AVR*
+*Next: Chapter 29 — CORDIC on AVR*

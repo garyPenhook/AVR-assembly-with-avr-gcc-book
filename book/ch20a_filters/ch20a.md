@@ -46,7 +46,7 @@ ADC INL / DNL             Systematic       Cannot be removed by software
 ```
 
 The first step is always hardware: bypass capacitors, short ground paths, low-
-impedance sources, and correct SAMPCTRL settings from Chapter 20. Software
+impedance sources, and correct SAMPCTRL settings from Chapter 30. Software
 filters cannot fix systematic hardware errors, but they substantially reduce
 random noise.
 
@@ -721,11 +721,11 @@ Using the output rather than the error for the derivative term prevents
 derivative of the error is infinite. The output changes smoothly, so its
 derivative is well-behaved.
 
-On AVR, each coefficient is stored as a fixed-point constant (see Chapter 5e
+On AVR, each coefficient is stored as a fixed-point constant (see Chapter 12
 for the multiply mechanics). This chapter uses a simplified representation where
 gains are powers of two so that multiplication reduces to a shift. For arbitrary
 gains, use the `MUL`/`FMUL` instructions and the Q-format scaling rules from
-Chapter 5e.
+Chapter 12.
 
 ### Fixed-Point Representation
 

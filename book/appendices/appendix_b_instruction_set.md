@@ -303,7 +303,7 @@ That method is enough to decode most of the manual quickly.
 
 ### What This Means for the Rest of the Book
 
-Use Chapter 4 to learn the common instruction patterns, then come back to this
+Use Chapter 6 to learn the common instruction patterns, then come back to this
 appendix when you need the full table. Use the Microchip manual when a question
 depends on one of these details:
 

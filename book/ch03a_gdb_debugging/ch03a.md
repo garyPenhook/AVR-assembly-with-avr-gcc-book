@@ -1,4 +1,4 @@
-# Chapter 3A: Debugging AVR Assembly with GDB {.unnumbered}
+# Debugging AVR Assembly with GDB
 
 Assembly debugging is different from source-level debugging in a high-level
 language. There is no hidden runtime to explain what happened. The evidence is
