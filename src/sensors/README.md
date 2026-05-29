@@ -12,13 +12,13 @@ project.
 
 ```
 lm75_twi.S          LM75 I2C temperature sensor — 2-byte register read
+ds3231_twi.S        DS3231 real-time clock — 7-byte multi-read + BCD decode
 ```
 
 ## Planned / good candidates to add
 
 ```
 bme280_twi.S        Bosch BME280 temp/humidity/pressure (I2C 0x76/0x77)
-ds3231_twi.S        DS3231 real-time clock (I2C 0x68)
 mpu6050_twi.S       InvenSense MPU-6050 6-axis IMU (I2C 0x68)
 bh1750_twi.S        Rohm BH1750 ambient light sensor (I2C 0x23)
 ```

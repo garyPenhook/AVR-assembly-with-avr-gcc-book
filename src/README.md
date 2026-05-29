@@ -109,6 +109,7 @@ ch20a_filters/
 
 sensors/                    (extras, not tied to one chapter)
     lm75_twi.S              LM75 I2C temperature sensor — register read
+    ds3231_twi.S            DS3231 RTC — 7-byte time/date read + BCD decode
 
 oled/                       (extras, not tied to one chapter)
     oled_ssd1306.S          SSD1306 128x64 OLED text — flash font (Ch.13)
