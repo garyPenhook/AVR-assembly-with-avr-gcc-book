@@ -2,7 +2,9 @@
 
 Complete instruction set for AVR (classic core, enhanced core with MUL).
 Columns: **Opcode** — mnemonic and operands; **Operation** — what it does;
-**Cycles** — clock cycles (branch cycles shown as taken/not-taken);
+**Cycles** — clock cycles **for the AVRxt core** (the ATtiny3217's family;
+these differ from classic AVRe timings for several load/store and call
+instructions — branch cycles shown as not-taken/taken);
 **Flags** — SREG bits modified (I T H S V N Z C).
 
 `Rd` = destination register (R0–R31 unless noted).
@@ -370,8 +372,8 @@ SWAP Rd         Rd[7:4] ↔ Rd[3:0]             1        —
 ```
 Opcode          Operation                      Cycles   Flags
 ──────────────────────────────────────────────────────────────────────────────
-SBI  A, b       I/O[A][b] ← 1  (A: 0–31)      2        —
-CBI  A, b       I/O[A][b] ← 0  (A: 0–31)      2        —
+SBI  A, b       I/O[A][b] ← 1  (A: 0–31)      1        —
+CBI  A, b       I/O[A][b] ← 0  (A: 0–31)      1        —
 BST  Rd, b      T ← Rd[b]                      1        T
 BLD  Rd, b      Rd[b] ← T                      1        —
 SEC             C ← 1                          1        C
@@ -419,9 +421,9 @@ JMP  k          —                  3        PC ← k; 32-bit instruction
 IJMP            —                  2        PC ← Z (16-bit)
 EIJMP           —                  2        PC ← EIND:Z (>128KB flash)
 
-RCALL k         —                  3        Push PC, PC ← PC + k + 1
-CALL  k         —                  4        Push PC, PC ← k; 32-bit
-ICALL           —                  3        Push PC, PC ← Z
+RCALL k         —                  2        Push PC, PC ← PC + k + 1
+CALL  k         —                  3        Push PC, PC ← k; 32-bit
+ICALL           —                  2        Push PC, PC ← Z
 EICALL          —                  3        Push PC, PC ← EIND:Z
 RET             —                  4        Pop PC
 RETI            —                  4        Pop PC, I ← 1
@@ -458,12 +460,14 @@ Opcode          Condition              Cycles      Notes
 CPSE Rd, Rr     Rd = Rr → skip next   1/2/3       skip 1 or 2-word instruction
 SBRC Rd, b      Rd[b] = 0 → skip      1/2/3
 SBRS Rd, b      Rd[b] = 1 → skip      1/2/3
-SBIC A, b       I/O[A][b] = 0 → skip  2/3/4       A: 0–31 only
-SBIS A, b       I/O[A][b] = 1 → skip  2/3/4       A: 0–31 only
+SBIC A, b       I/O[A][b] = 0 → skip  1/2/3       A: 0–31 only
+SBIS A, b       I/O[A][b] = 1 → skip  1/2/3       A: 0–31 only
 ```
 
 Skip cycle counts: 1 = no skip; 2 = skip 1-word instruction; 3 = skip 2-word
-instruction (LDS, STS, CALL, JMP). `SBIC`/`SBIS` add 1 due to I/O read.
+instruction (LDS, STS, CALL, JMP). On AVRxt `SBIC`/`SBIS` cost the same as
+`SBRC`/`SBRS` (1/2/3) — unlike older AVRe/AVRxm cores, there is no extra I/O
+read penalty.
 
 ---
 
@@ -475,37 +479,41 @@ Opcode          Operation                      Cycles   Notes
 MOV  Rd, Rr     Rd ← Rr                        1
 MOVW Rd, Rr     Rd+1:Rd ← Rr+1:Rr             1        Rd, Rr: even registers
 LDI  Rd, K      Rd ← K  (R16–R31 only)         1
-LDS  Rd, k      Rd ← SRAM[k]                   2        k: 16-bit address
+LDS  Rd, k      Rd ← SRAM[k]                   3        k: 16-bit address
 STS  k, Rr      SRAM[k] ← Rr                   2        k: 16-bit address
 
 /* X register (R27:R26) indirect */
 LD   Rd, X      Rd ← SRAM[X]                   2
 LD   Rd, X+     Rd ← SRAM[X]; X ← X+1         2
 LD   Rd, −X     X ← X−1; Rd ← SRAM[X]         2
-ST   X, Rr      SRAM[X] ← Rr                   2
-ST   X+, Rr     SRAM[X] ← Rr; X ← X+1         2
-ST   −X, Rr     X ← X−1; SRAM[X] ← Rr         2
+ST   X, Rr      SRAM[X] ← Rr                   1
+ST   X+, Rr     SRAM[X] ← Rr; X ← X+1         1
+ST   −X, Rr     X ← X−1; SRAM[X] ← Rr         1
 
 /* Y register (R29:R28) indirect */
 LD   Rd, Y      Rd ← SRAM[Y]                   2
 LD   Rd, Y+     Rd ← SRAM[Y]; Y ← Y+1         2
 LD   Rd, −Y     Y ← Y−1; Rd ← SRAM[Y]         2
 LDD  Rd, Y+q    Rd ← SRAM[Y+q]  q: 0–63       2
-ST   Y, Rr      SRAM[Y] ← Rr                   2
-ST   Y+, Rr     SRAM[Y] ← Rr; Y ← Y+1         2
-ST   −Y, Rr     Y ← Y−1; SRAM[Y] ← Rr         2
-STD  Y+q, Rr    SRAM[Y+q] ← Rr  q: 0–63       2
+ST   Y, Rr      SRAM[Y] ← Rr                   1
+ST   Y+, Rr     SRAM[Y] ← Rr; Y ← Y+1         1
+ST   −Y, Rr     Y ← Y−1; SRAM[Y] ← Rr         1
+STD  Y+q, Rr    SRAM[Y+q] ← Rr  q: 0–63       1
 
 /* Z register (R31:R30) indirect */
 LD   Rd, Z      Rd ← SRAM[Z]                   2
 LD   Rd, Z+     Rd ← SRAM[Z]; Z ← Z+1         2
 LD   Rd, −Z     Z ← Z−1; Rd ← SRAM[Z]         2
 LDD  Rd, Z+q    Rd ← SRAM[Z+q]  q: 0–63       2
-ST   Z, Rr      SRAM[Z] ← Rr                   2
-ST   Z+, Rr     SRAM[Z] ← Rr; Z ← Z+1         2
-ST   −Z, Rr     Z ← Z−1; SRAM[Z] ← Rr         2
-STD  Z+q, Rr    SRAM[Z+q] ← Rr  q: 0–63       2
+ST   Z, Rr      SRAM[Z] ← Rr                   1
+ST   Z+, Rr     SRAM[Z] ← Rr; Z ← Z+1         1
+ST   −Z, Rr     Z ← Z−1; SRAM[Z] ← Rr         1
+STD  Z+q, Rr    SRAM[Z+q] ← Rr  q: 0–63       1
 ```
+
+On AVRxt, indirect/displacement stores (`ST`, `STD`) take **1** cycle and
+`LDS` takes **3**; these differ from the classic AVRe values (2 each). `LD`,
+`LDD`, `STS`, `POP`, `IN`, and `OUT` are unchanged.
 
 ### Load from Program Memory (Flash)
 
@@ -530,7 +538,7 @@ Opcode          Operation                      Cycles   Notes
 ──────────────────────────────────────────────────────────────────────────────
 IN   Rd, A      Rd ← I/O[A]                    1        A: 0–63
 OUT  A, Rr      I/O[A] ← Rr                    1        A: 0–63
-PUSH Rr         SRAM[SP] ← Rr; SP ← SP−1       2
+PUSH Rr         SRAM[SP] ← Rr; SP ← SP−1       1
 POP  Rd         SP ← SP+1; Rd ← SRAM[SP]       2
 ```
 

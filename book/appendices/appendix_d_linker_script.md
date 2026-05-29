@@ -10,6 +10,13 @@ scripts is necessary when:
 - Using `.noinit` for variables that survive a software reset.
 - Adding custom sections (e.g., a parameter page at a known flash address).
 
+> **Note on the target device**: the worked examples below use the ATmega328P
+> because its memory map is the one most readers have seen. The concepts are
+> identical for the book's ATtiny3217, but two numbers change: flash is still
+> 32 KB (0x0000–0x7FFF), while SRAM is 2 KB at hardware address 0x3800, so the
+> `avr-ld` data origin is **0x803800** (not 0x800100) and RAMEND is 0x803FFF.
+> Substitute those values, and `-mmcu=attiny3217`, when adapting a script.
+
 ---
 
 ## Anatomy of a Linker Script

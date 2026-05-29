@@ -124,6 +124,13 @@ percentages, use the avr-size that ships with a device-aware avr-gcc/avr-libc
 toolchain. The Berkeley output (avr-size with no -C) never depends on the
 device table and is portable across builds.
 
+A second gotcha: `avr-size` is part of *binutils*, not GCC. Some popular AVR
+toolchains are GCC-only builds that bundle just enough binutils for the
+compiler to run and omit `avr-size` (along with `addr2line`, `readelf`, and
+`strings`). If `avr-size` is "command not found", install a full binutils for
+AVR — or remember that `avr-objdump -h` already prints every section's size, so
+you can always read the byte counts from there.
+
 A useful habit is to print the size on every build so a sudden jump is
 obvious. Make this the last line of your build rule:
 

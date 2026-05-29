@@ -132,17 +132,18 @@ key 0xD8 first. To run at **10 MHz**: write PEN=1, PDIV=0x0 (divide by 2).
 ### MCLKSTATUS — Status (read-only)
 
 ```
-Bit:  7        6        5        4        3        2        1        0
-      EXTS     XOSC32KS SOSC     OSC32KS  OSC20MS  —        —        SOSC
+Bit:  7        6        5        4        3   2   1   0
+      EXTS     XOSC32KS OSC32KS  OSC20MS  —   —   —   SOSC
 ```
 
 ```
-Bit name   Description
+Bit name   Bit   Description
 ────────────────────────────────────────────────────────
-OSC20MS    1 = 20 MHz oscillator is stable and running
-OSC32KS    1 = 32 KHz oscillator is stable
-SOSC       1 = main clock source switch is in progress
-EXTS       1 = External clock source is active
+EXTS       7     1 = external clock (EXTCLK) has started
+XOSC32KS   6     1 = 32.768 KHz crystal oscillator is stable
+OSC32KS    5     1 = internal ULP 32 KHz oscillator is stable
+OSC20MS    4     1 = 20 MHz oscillator is stable and running
+SOSC       0     1 = main clock source switch is in progress
 ```
 
 ---
@@ -358,7 +359,7 @@ PORTC_PIN7CTRL     0x0457     PC7 config (not present on 20-pin package)
 Each `PORTx_PINnCTRL` register configures one pin independently.
 
 ```
-Bit:  7      6:3    3        2:0
+Bit:  7      6:4    3         2:0
       INVEN   —     PULLUPEN  ISC[2:0]
       │              │         │
       │              │         └─ Input Sense Configuration (see below)
@@ -1015,56 +1016,73 @@ _start:
 
 ## Fuses
 
-Fuses are one-time-programmable configuration bytes written via UPDI using
-`avrdude`. Factory defaults are shown. Unlike ATmega, there is no separate
-CKDIV, BOOTRST, or BOOTSZ fuse.
+Fuses are configuration bytes in the FUSES region (base 0x1280), written via
+UPDI using `avrdude`. Factory values are shown. Unlike ATmega, there is no
+separate CKDIV, BOOTRST, or BOOTSZ fuse; the boot/application split is set by
+BOOTEND and APPEND instead. The fuse offset within the region (0-based) is also
+the number `avrdude` uses for the `fuseN` memory name.
 
 ```
-Fuse     Mem Addr   Default   Description
-──────────────────────────────────────────────────────────────────────
-FUSE0    0x1280     0x00      APPEND[7:0]   — application code end page
-FUSE1    0x1281     0x00      BOOTEND[7:0]  — boot section end page (0=none)
-FUSE2    0x1282     0x02      OSCCFG        — oscillator config
-FUSE4    0x1284     0xF6      SYSCFG0       — CRC, reset pin, UPDI pin config
-FUSE5    0x1285     0x07      SYSCFG1       — startup time SUT[2:0]
-FUSE6    0x1286     0x00      (same as FUSE0 on this device)
-FUSE7    0x1287     0x00      (same as FUSE1)
-FUSE8    0x1288     0xAA      LOCKBIT
+Off  Fuse      Mem Addr   Factory   Description
+──────────────────────────────────────────────────────────────────────────
+0x0  WDTCFG    0x1280     0x00      WINDOW[7:4], PERIOD[3:0] — watchdog
+0x1  BODCFG    0x1281     0x00      LVL[7:5], SAMPFREQ[4], ACTIVE[3:2],
+                                    SLEEP[1:0] — brown-out detector
+0x2  OSCCFG    0x1282     0x02      OSCLOCK[7], FREQSEL[1:0] — oscillator
+0x3  (reserved)0x1283     —
+0x4  TCD0CFG   0x1284     0x00      TCD0 compare/fault default outputs
+0x5  SYSCFG0   0x1285     0xC4      CRCSRC[7:6], TOUTDIS[4], RSTPINCFG[3:2],
+                                    EESAVE[0] — reset pin, CRC, EEPROM save
+0x6  SYSCFG1   0x1286     0x07      SUT[2:0] — start-up time
+0x7  APPEND    0x1287     0x00      Application code end page (256-byte units)
+0x8  BOOTEND   0x1288     0x00      Boot section end page (0 = no boot section)
+0xA  LOCKBIT   0x128A     0xC5      0xC5 = unlocked; any other value locks
 ```
 
-### FUSE2 — OSCCFG
+### OSCCFG (0x1282)
 
 ```
-Bit:  1       0
-      FREQSEL FREQSEL
+Bit:  7        2:0
+      OSCLOCK  FREQSEL[1:0]
 
-FREQSEL  0=16 MHz internal oscillator base
-         1=20 MHz internal oscillator base  ← factory default (0x02)
+FREQSEL  0x1 = 16 MHz internal oscillator base
+         0x2 = 20 MHz internal oscillator base   ← factory default
+OSCLOCK  1 = lock OSC20M calibration registers
 ```
 
-The clock prescaler in CLKCTRL_MCLKCTRLB further divides this frequency.
-Factory default: 20 MHz / 6 = 3.333 MHz.
+Factory default OSCCFG = 0x02 (FREQSEL=0x2 → 20 MHz base). The clock prescaler
+in CLKCTRL_MCLKCTRLB further divides this: 20 MHz / 6 = 3.333 MHz at reset.
 
-### FUSE4 — SYSCFG0
+### SYSCFG0 (0x1285)
 
 ```
-Bit:  7:6    5:4      3:2         1:0
-      CRCSRC RSTPINCFG UPDIPINCFG —
+Bit:  7:6      4        3:2        0
+      CRCSRC   TOUTDIS  RSTPINCFG  EESAVE
 
-RSTPINCFG  0x0=GPIO, 0x1=UPDI, 0x2=RESET  (0xF6 default = RESET=GPIO, UPDI active)
-CRCSRC     0x3=no CRC check (default)
+CRCSRC     0x0=full Flash, 0x1=boot, 0x2=boot+app, 0x3=no CRC (default 0x3)
+TOUTDIS    0 = NVM-write block after POR enabled, 1 = disabled
+RSTPINCFG  0x0=GPIO, 0x1=UPDI, 0x2=RESET            (default 0x1 = UPDI)
+EESAVE     0 = EEPROM erased on chip erase, 1 = preserved
 ```
+
+Factory default SYSCFG0 = 0xC4 (CRCSRC=no-CRC, RSTPINCFG=UPDI, EESAVE=erase).
 
 ### Writing Fuses with avrdude
 
-```
-avrdude -c serialupdi -p t3217 -P /dev/ttyUSB0 -b 115200 \
-        -U fuse2:w:0x02:m
+`avrdude` accepts the fuse names directly for this device:
 
+```
+# Write a single fuse (OSCCFG = 20 MHz base)
 avrdude -c serialupdi -p t3217 -P /dev/ttyUSB0 -b 115200 \
-        -U fuse0:w:0x00:m -U fuse1:w:0x00:m -U fuse2:w:0x02:m \
-        -U fuse4:w:0xF6:m -U fuse5:w:0x07:m
+        -U osccfg:w:0x02:m
+
+# Restore factory fuse values
+avrdude -c serialupdi -p t3217 -P /dev/ttyUSB0 -b 115200 \
+        -U wdtcfg:w:0x00:m  -U bodcfg:w:0x00:m  -U osccfg:w:0x02:m \
+        -U tcd0cfg:w:0x00:m -U syscfg0:w:0xC4:m -U syscfg1:w:0x07:m \
+        -U append:w:0x00:m  -U bootend:w:0x00:m
 ```
 
-> **Warning**: Setting RSTPINCFG incorrectly can disable the UPDI programming
-> interface, effectively bricking the device. Never modify FUSE4 unless certain.
+> **Warning**: Setting RSTPINCFG to GPIO or RESET, or writing an invalid
+> LOCKBIT key, can disable the UPDI programming interface or lock the device,
+> effectively bricking it. Never modify SYSCFG0 or LOCKBIT unless certain.

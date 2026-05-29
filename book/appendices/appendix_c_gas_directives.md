@@ -48,7 +48,8 @@ Directive                     Effect
 .type   symbol, @object       Mark symbol as data object
 .size   symbol, size          Set symbol size (bytes)
 .set    symbol, expr          Define symbol = expr (reassignable)
-.equ    symbol, expr          Define symbol = expr (not reassignable; synonym: .equiv)
+.equ    symbol, expr          Define symbol = expr (reassignable; synonym of .set)
+.equiv  symbol, expr          Like .equ, but errors if symbol already defined
 ```
 
 Example:

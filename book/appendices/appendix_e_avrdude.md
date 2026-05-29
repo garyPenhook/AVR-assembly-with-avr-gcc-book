@@ -224,6 +224,12 @@ Full list: `avrdude -p ?`
 
 ## Fuse Byte Reference (ATmega328P)
 
+> **This section is ATmega328P only.** Classic ATmega parts use three fuse
+> bytes (LFUSE/HFUSE/EFUSE) with the bit fields below. The book's ATtiny3217
+> does **not** have these — it uses the named fuses (WDTCFG, BODCFG, OSCCFG,
+> SYSCFG0/1, APPEND, BOOTEND, LOCKBIT) documented in Appendix A. Do not apply
+> the values below to the ATtiny3217.
+
 ### Low Fuse (LFUSE)
 
 ```
