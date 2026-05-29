@@ -2,5 +2,8 @@
 *.elf
 book/tmp/pdfs/
 scripts/__pycache__/
-book/output/
+book/output/*
+!book/output/pdf
+book/output/pdf/*
+!book/output/pdf/avr-assembly-programming.pdf
 .cursor/
