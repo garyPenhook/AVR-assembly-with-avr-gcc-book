@@ -113,10 +113,15 @@ sensors/                    (extras, not tied to one chapter)
 
 oled/                       (extras, not tied to one chapter)
     oled_ssd1306.S          SSD1306 128x64 OLED text — flash font (Ch.13)
+
+explorer/                   (Curiosity Nano Explorer board, EV58G97A)
+    17 drivers              one per on-board peripheral (I2C/SPI/PWM/ADC/...)
 ```
 
 The `sensors/` and `oled/` directories collect peripheral examples that build
-on Chapter 13 but are not tied to a single chapter. Each has its own README.
+on Chapter 13 but are not tied to a single chapter. The `explorer/` directory
+holds a driver for every peripheral on the Curiosity Nano Explorer base board.
+Each directory has its own README.
 
 ## Building
 
