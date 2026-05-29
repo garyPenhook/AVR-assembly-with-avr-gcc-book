@@ -6,7 +6,7 @@
  *   NVMCTRL on AVRXMEGA3: plain ST to mapped flash fills page buffer
  *   CCP_SPM_gc key (0x9D): opens a 4-cycle window to write NVMCTRL_CTRLA
  *   PAGEERASEWRITE command (0x03): erase page then write buffer in one operation
- *   CLI/SEI around CCP window: prevents interrupt from consuming the 4 cycles
+ *   CLI/SEI around CCP window: defensive only — hardware ignores IRQs in window
  *   FBUSY polling: wait until previous NVM operation completes before proceeding
  *   128-byte page granularity: writes must align to page boundaries
  *   ATtiny3217 mapped flash: ST Z+ writes to page buffer when Z in flash window
@@ -74,10 +74,10 @@
 .equ NVMCTRL_CMD_PAGEWRITE_gc,      0x01  /* write page buffer (no erase)    */
 .equ NVMCTRL_CMD_PAGEERASE_gc,      0x02  /* erase one page                  */
 .equ NVMCTRL_CMD_PAGEERASEWRITE_gc, 0x03  /* erase + write (recommended)     */
-.equ NVMCTRL_CMD_PAGEBUFERASE_gc,   0x04  /* clear page buffer               */
-.equ NVMCTRL_CMD_CHIPERASE_gc,      0x05  /* erase flash array; avoid here   */
+.equ NVMCTRL_CMD_PAGEBUFCLR_gc,     0x04  /* clear page buffer               */
+.equ NVMCTRL_CMD_CHIPERASE_gc,      0x05  /* erase Flash + EEPROM; avoid here */
 .equ NVMCTRL_CMD_EEERASE_gc,        0x06  /* erase EEPROM                    */
-.equ NVMCTRL_CMD_FUSEWRITE_gc,      0x07  /* write fuses (restricted)        */
+.equ NVMCTRL_CMD_WRITEFUSE_gc,      0x07  /* write fuses (UPDI only)         */
 
 /* ── CCP (Configuration Change Protection) ─────────────────────────────── */
 .equ CPU_CCP,       0x0034          /* CCP register address (I/O space)      */
@@ -100,8 +100,8 @@
  *   RJMP nvm_wait        — 2 cycles (taken branch)
  *   ─────────────────────  6 cycles per iteration while busy
  *
- * A PAGEERASEWRITE takes ~2.5 ms at any clock frequency.
- * At 3.333 MHz, that is ~8333 cycles → ~1389 poll iterations.
+ * A PAGEERASEWRITE (ERWP) takes ~4 ms typical (datasheet Table 36-38).
+ * At 3.333 MHz, that is ~13333 cycles → ~2222 poll iterations.
  * ═══════════════════════════════════════════════════════════════════════════ */
 .global nvm_wait
 nvm_wait:
@@ -170,7 +170,8 @@ nvm_write_page:
      *   2. Write PAGEERASEWRITE (0x03) to NVMCTRL_CTRLA — within 4 cycles
      *
      * Two STS instructions = 2 + 2 = exactly 4 cycles.
-     * CLI/SEI prevent an ISR from consuming cycles inside the window.
+     * Interrupts are ignored by hardware during the 4-instruction window;
+     * the CLI/SEI here is defensive (guards the prepared registers).
      *
      * IMPORTANT: Do NOT place any instruction between the two STS calls.
      */

@@ -2,9 +2,9 @@
  *                Companion source for Chapter 18: Real-Time Patterns
  *
  * Covers:
- *   Tick-based cooperative scheduler: TCB0 ISR increments a global tick counter
- *   Task table: each entry holds a deadline (tick threshold) and function pointer
- *   Polling loop: main checks each task's deadline; if ticks >= deadline, call task
+ *   Tick-based cooperative scheduler: TCB0 ISR sets a 1-byte tick_flag in SRAM
+ *   Main loop: polls tick_flag, clears it, then calls each task once per tick
+ *   Per-task timing: each task owns a 16-bit counter compared against its period
  *   Blocking vs non-blocking: task_uart uses polling TX (blocks briefly per byte)
  *   TCB0 as 1 ms timebase: CCMP = (F_CPU / 1000) - 1 = 3332 for 3.333 MHz
  *   Jitter: cooperative scheduling cannot preempt a running task; deadline can slip
@@ -43,8 +43,8 @@
     jmp   default_isr           /* 0x0014  PORTC_PORT                         */
     jmp   default_isr           /* 0x0018  RTC_CNT                            */
     jmp   default_isr           /* 0x001C  RTC_PIT                            */
-    jmp   default_isr           /* 0x0020  TCA0_LUNF                          */
-    jmp   default_isr           /* 0x0024  TCA0_OVF                           */
+    jmp   default_isr           /* 0x0020  TCA0_LUNF/OVF                      */
+    jmp   default_isr           /* 0x0024  TCA0_HUNF                          */
     jmp   default_isr           /* 0x0028  TCA0_CMP0                          */
     jmp   default_isr           /* 0x002C  TCA0_CMP1                          */
     jmp   default_isr           /* 0x0030  TCA0_CMP2                          */

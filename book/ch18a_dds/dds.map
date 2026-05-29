@@ -16,7 +16,7 @@ user_signatures  0x00850000         0x00000400         rw!x
 Linker script and memory map
 
 Address of section .data set to 0x803800
-LOAD /tmp/ccZ886ry.o
+LOAD /tmp/claude-1000/ccnm0WaG.o
                 0x00000000                        __TEXT_REGION_ORIGIN__ = DEFINED (__TEXT_REGION_ORIGIN__)?__TEXT_REGION_ORIGIN__:0x0
                 0x00100000                        __TEXT_REGION_LENGTH__ = DEFINED (__TEXT_REGION_LENGTH__)?__TEXT_REGION_LENGTH__:0x100000
                 0x00802000                        __DATA_REGION_ORIGIN__ = DEFINED (__DATA_REGION_ORIGIN__)?__DATA_REGION_ORIGIN__:0x802000
@@ -120,7 +120,7 @@ LOAD /tmp/ccZ886ry.o
 
 .text           0x00000000      0x300
  *(.vectors)
- .vectors       0x00000000       0x7c /tmp/ccZ886ry.o
+ .vectors       0x00000000       0x7c /tmp/claude-1000/ccnm0WaG.o
  *(.vectors)
                 0x0000007c                        __progmem_start = .
  *(.progmem)
@@ -166,7 +166,7 @@ LOAD /tmp/ccZ886ry.o
  *(.init9)
  *(.text)
  *fill*         0x0000007c       0x84 
- .text          0x00000100      0x200 /tmp/ccZ886ry.o
+ .text          0x00000100      0x200 /tmp/claude-1000/ccnm0WaG.o
                 0x00000300                        . = ALIGN (0x2)
  *(.text.*)
                 0x00000300                        . = ALIGN (0x2)
@@ -207,7 +207,7 @@ LOAD /tmp/ccZ886ry.o
 .data           0x00803800        0x0 load address 0x00000300
                 [!provide]                        PROVIDE (__data_start = .)
  *(.data)
- .data          0x00803800        0x0 /tmp/ccZ886ry.o
+ .data          0x00803800        0x0 /tmp/claude-1000/ccnm0WaG.o
  *(.data*)
  *(.gnu.linkonce.d*)
                 0x00803800                        . = ALIGN (0x2)
@@ -217,7 +217,7 @@ LOAD /tmp/ccZ886ry.o
 .bss            0x00803800        0x4
                 [!provide]                        PROVIDE (__bss_start = .)
  *(.bss)
- .bss           0x00803800        0x4 /tmp/ccZ886ry.o
+ .bss           0x00803800        0x4 /tmp/claude-1000/ccnm0WaG.o
  *(.bss*)
  *(COMMON)
                 [!provide]                        PROVIDE (__bss_end = .)
@@ -271,7 +271,7 @@ LOAD /tmp/ccZ886ry.o
  *(.comment)
 
 .avr.prop       0x00000000       0x16
- .avr.prop      0x00000000       0x16 /tmp/ccZ886ry.o
+ .avr.prop      0x00000000       0x16 /tmp/claude-1000/ccnm0WaG.o
 
 .gnu.build.attributes
  *(.gnu.build.attributes .gnu.build.attributes.*)

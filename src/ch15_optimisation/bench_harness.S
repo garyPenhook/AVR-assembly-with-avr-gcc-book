@@ -92,9 +92,9 @@ fill_src:
     ldi     r20, 16
     rcall   memcpy_fast         /* 4-byte unrolled inner loop                  */
 
-    /* ── Test sin8: angle 64 (= 90° × 64/256) → should return ~182 ──────
-     * LUT maps 0..255 to 0..360°; entry 64 corresponds to 90°, sin = +1.0
-     * scaled to ~255, but the table has 255 at index 63/64.               */
+    /* ── Test sin8: angle 64 (= 90°) → should return 255 ───────────────
+     * LUT maps 0..255 to 0..360°; entry 64 corresponds to 90°, sin = +1.0,
+     * scaled to the table maximum of 255.                                 */
     ldi     r24, 64             /* angle = 0x40                                */
     rcall   sin8                /* r24 = sin_table[64]                         */
     sts     sin_sample, r24     /* store result so objdump/GDB can inspect it  */

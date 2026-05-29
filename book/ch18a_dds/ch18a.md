@@ -239,11 +239,11 @@ M = round(f_out × 65536 / 7992)
 ```
 Note    Frequency (Hz)    Tuning word M    Actual f_out (Hz)    Error (Hz)
 ──────────────────────────────────────────────────────────────────────────
-C4      261.626           2145             261.63               +0.00
-D4      293.665           2407             293.82               +0.15
-E4      329.628           2702             329.88               +0.25
-A4      440.000           3610             440.24               +0.24
-C5      523.251           4289             523.50               +0.25
+C4      261.626           2145             261.58               −0.05
+D4      293.665           2408             293.65               −0.01
+E4      329.628           2703             329.63               −0.00
+A4      440.000           3608             439.99               −0.01
+C5      523.251           4291             523.28               +0.03
 ```
 
 Calculation for A4:
@@ -251,14 +251,14 @@ Calculation for A4:
 ```
 M = round(440 × 65536 / 7992)
   = round(28,835,840 / 7992)
-  = round(3609.7)
-  = 3610
+  = round(3608.09)
+  = 3608
 
-f_actual = 7992 × 3610 / 65536
-         = 28,851,120 / 65536
-         = 440.24 Hz
+f_actual = 7992 × 3608 / 65536
+         = 28,835,136 / 65536
+         = 439.99 Hz
 
-Error = 440.24 − 440 = 0.24 Hz   (0.055%)
+Error = 439.99 − 440 = −0.01 Hz   (−0.002%)
 ```
 
 That error is far below the just-noticeable pitch difference for a typical
@@ -279,7 +279,7 @@ Or, if computing offline and loading M as a constant, use Python:
 ```python
 f_s = 7992                    # actual sample rate
 N = 16
-M = round(440 * (2**N) / f_s)  # M = 3610
+M = round(440 * (2**N) / f_s)  # M = 3608
 ```
 
 On AVR, the tuning word is set by the application before the DDS ISR starts
@@ -313,7 +313,7 @@ Index    Angle       Value    Notes
   160    225°         37
   192    270°           0     negative peak
   224    315°          37
-  255    359.86°     128      approaching next cycle
+  255    358.59°     124      approaching next cycle
 ```
 
 The value 128 corresponds to mid-scale PWM (0 V after low-pass filtering). The
@@ -351,7 +351,7 @@ compute the table address with a single `MOV` rather than an addition:
 .balign 256             /* align to 256-byte address boundary */
 sine_table:
     .byte 128, 131, 134, 137, 140, 143, 146, 149
-    .byte 152, 155, 158, 161, 164, 167, 170, 172
+    .byte 152, 155, 158, 162, 165, 167, 170, 173
     ...
     /* 256 entries total */
 ```
@@ -429,15 +429,16 @@ Add step to accumulator (ADD + ADC)                  1+1  = 2 cycles
 Store accumulator (2 × STS)                         2 × 2 = 4 cycles
 Set up Z and fetch sample (LDI + MOV + LPM)         1+1+3 = 5 cycles
 Write sample to PWM (STS)                                  = 2 cycles
-Epilogue (restore r30–r31, r16–r21, SREG + RETI)  9+1+4  = 14 cycles
+Epilogue (restore r30–r31, r16–r21, SREG + RETI)  9×2+1+4 = 23 cycles
 ────────────────────────────────────────────────────────────────────
-Total                                                      52 cycles
-Budget (417 cycles per sample)                            365 cycles remaining
-CPU utilisation                                            52/417 = 12.5%
+Total                                                      61 cycles
+Budget (417 cycles per sample)                            356 cycles remaining
+CPU utilisation                                            61/417 = 14.6%
 ```
 
-At 12.5%, the DDS ISR leaves ample time for a cooperative-scheduler main loop
-to handle other tasks between samples.
+On AVRxt, `PUSH` is 1 cycle but `POP` is 2 cycles, so the 9-register restore in
+the epilogue costs 18 cycles. At 14.6%, the DDS ISR still leaves ample time for a
+cooperative-scheduler main loop to handle other tasks between samples.
 
 ### TCB0 Initialisation
 
@@ -509,9 +510,9 @@ tca0_pwm_init:
     ret
 ```
 
-The PWM frequency is 13,021 Hz, approximately 1.6× the Nyquist limit of the
-7992 Hz sample rate. Signals above the Nyquist limit alias; the PWM carrier
-itself aliases to audible frequencies unless filtered. Place an RC low-pass
+The PWM frequency is 13,021 Hz — about 1.6× the 7992 Hz sample rate, and roughly
+3.3× the 3996 Hz Nyquist limit. Signals above the Nyquist limit alias; the PWM
+carrier itself aliases to audible frequencies unless filtered. Place an RC low-pass
 filter on PB0 before any audio output stage:
 
 ```
@@ -535,7 +536,7 @@ For wider bandwidth (up to 3 kHz), use R = 5.6 kΩ, C = 10 nF → f_c = 2.84 kHz
  *   3. Writes the sine sample to TCA0_SPLIT_LCMP0 (8-bit PWM duty)
  *
  * Saves/restores: SREG, R16–R21, R30–R31 (Z)
- * Cycle cost: ~52 cycles of the 417-cycle budget
+ * Cycle cost: ~61 cycles of the 417-cycle budget
  */
 dds_isr:
     /* ── Prologue ──────────────────────────────────────────────────── */
@@ -623,10 +624,10 @@ reset_handler:
     rcall tca0_pwm_init
     rcall tcb0_dds_init
 
-    /* Load tuning word for A4 (440 Hz at 7992 Hz sample rate: M = 3610) */
-    ldi   r16, lo8(3610)            /* 0x1A */
+    /* Load tuning word for A4 (440 Hz at 7992 Hz sample rate: M = 3608) */
+    ldi   r16, lo8(3608)            /* 0x18 */
     sts   phase_step, r16
-    ldi   r16, hi8(3610)            /* 0x0E */
+    ldi   r16, hi8(3608)            /* 0x0E */
     sts   phase_step+1, r16
 
     sei                             /* enable global interrupts */
@@ -658,8 +659,8 @@ sine table, all initialisation routines, the DDS ISR, and the reset handler.
     jmp   default_isr            /* 0x0014  PORTC_PORT  */
     jmp   default_isr            /* 0x0018  RTC_CNT     */
     jmp   default_isr            /* 0x001C  RTC_PIT     */
-    jmp   default_isr            /* 0x0020  TCA0_LUNF   */
-    jmp   default_isr            /* 0x0024  TCA0_OVF    */
+    jmp   default_isr            /* 0x0020  TCA0_LUNF/OVF */
+    jmp   default_isr            /* 0x0024  TCA0_HUNF   */
     jmp   default_isr            /* 0x0028  TCA0_CMP0   */
     jmp   default_isr            /* 0x002C  TCA0_CMP1   */
     jmp   default_isr            /* 0x0030  TCA0_CMP2   */
@@ -931,9 +932,9 @@ For unequal amplitudes, scale one or both samples before summing. The same
 pattern extends to three or four oscillators within the 417-cycle ISR budget,
 though the total cycle count must be verified to stay within bounds.
 
-The two-tone ISR costs approximately 52 + 20 = 72 cycles (adding the second
-oscillator update and mix), leaving 345 cycles per sample. That is still 17%
-CPU utilisation — manageable.
+The two-tone ISR costs approximately 61 + 28 = 89 cycles (adding the second
+oscillator update and mix, plus the extra register saves it requires), leaving
+328 cycles per sample. That is still about 21% CPU utilisation — manageable.
 
 ---
 
@@ -957,9 +958,9 @@ For A4 with the 32-bit accumulator:
 ```
 M = round(440 × 2^32 / 7992)
   = round(440 × 4,294,967,296 / 7992)
-  = round(236,415,633,536 / 7992)
-  = round(29,581,754.8)
-  = 29,581,755   (0x01C39BFB)
+  = round(1,889,785,610,240 / 7992)
+  = round(236,459,661.4)
+  = 236,459,661   (0x0E18168D)
 ```
 
 ### ISR Accumulator Update
@@ -993,7 +994,7 @@ lpm   r21, Z
 
 Cycle cost: 4×LDS + 4×LDS + 4×(ADD/ADC) + 4×STS + LDI + MOV + LPM
 = 12 + 12 + 4 + 8 + 1 + 1 + 3 = 41 cycles for the accumulator and lookup,
-versus 22 cycles for the 16-bit version. The additional 19 cycles are a
+versus 23 cycles for the 16-bit version. The additional 18 cycles are a
 reasonable cost for the jump from 0.122 Hz resolution to 1.86 μHz resolution.
 
 ---
@@ -1025,7 +1026,7 @@ Wrong (16-bit overflow for any reasonable audio frequency):
   M = (uint16_t)(440 * 65536) / 7992   → garbage
 
 Correct:
-  M = (uint32_t)(440) * 65536UL / 7992  → 3610
+  M = (uint32_t)(440) * 65536UL / 7992  → 3608
 ```
 
 In the assembly source, M is a precomputed constant. The overflow risk is in the
@@ -1142,7 +1143,7 @@ ATtiny3217 (F_CPU = 3,333,333 Hz) 16-bit DDS parameters:
   Nyquist limit:  3996 Hz (M < 32768)
   Phase spurs:    ≈ −48 dBc (8 truncated bits, 256-entry table)
 
-ISR cycle cost:   ~52 cycles of a 417-cycle budget (12.5% CPU)
+ISR cycle cost:   ~61 cycles of a 417-cycle budget (14.6% CPU)
 
 Table:
   256 unsigned bytes in flash, .balign 256 for aligned-page ZL lookup
@@ -1154,11 +1155,11 @@ Chirp:             increment phase_step by chirp_rate each sample
 
 Two tones:
   second accumulator + second step → average both samples before PWM write
-  total ISR cost ~72 cycles (17% CPU)
+  total ISR cost ~89 cycles (21% CPU)
 
 32-bit accumulator:
   resolution ≈ 1.86 μHz at 7992 Hz sample rate
-  ISR cost ~70 cycles (additional ~19 cycles for the 4-byte add and stores)
+  ISR cost ~79 cycles (additional ~18 cycles for the 4-byte add and stores)
 ```
 
 Microchip source notes:
@@ -1203,8 +1204,8 @@ Microchip source notes:
    and square wave tables at run time?
 
 6. Measure the actual output frequency of the dds.S firmware using a frequency
-   counter or oscilloscope, and compare it with the calculated f_out = 440.24 Hz
-   for M = 3610. What sources of error remain between the measured and predicted
+   counter or oscilloscope, and compare it with the calculated f_out = 439.99 Hz
+   for M = 3608. What sources of error remain between the measured and predicted
    values?
 
 ---

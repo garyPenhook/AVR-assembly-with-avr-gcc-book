@@ -25,7 +25,7 @@
  *   X (R27:R26) = dst
  *   R20  = len
  *   R21  = len & 3 (tail count)
- *   R18-R21 = four data bytes per unrolled iteration
+ *   R18, R19, R22, R23 = four data bytes per unrolled iteration
  */
 
 .section .text

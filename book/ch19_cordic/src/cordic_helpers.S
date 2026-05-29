@@ -82,7 +82,7 @@ cordic_asr16:
     tst   r17
     breq  .Lasr16_done              /* shift by 0: return input unchanged      */
 .Lasr16_loop:
-    asr   r25                       /* arithmetic shift high byte: 0→bit7     */
+    asr   r25                       /* high byte: sign bit (bit7) preserved   */
     ror   r24                       /* rotate low byte: carry in from high    */
     dec   r17
     brne  .Lasr16_loop

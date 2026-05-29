@@ -3,7 +3,7 @@
  *
  * Covers:
  *   Phase accumulator: 16-bit register pair incremented by tuning word M each sample
- *   Tuning word: M = (F_out × 2^N) / F_sample = (440 × 65536) / 7992 = 3610 for A4
+ *   Tuning word: M = (F_out × 2^N) / F_sample = (440 × 65536) / 7992 = 3608 for A4
  *   LUT lookup: high byte of accumulator (bits [15:8]) indexes the 256-entry sine table
  *   TCB0 as sample clock: CCMP=416 → 7992 Hz ISR, sets TCA0 PWM duty each sample
  *   TCA0 single-slope PWM: 8-bit duty in CMP0, period set by PER=255, ~13 kHz PWM
@@ -12,7 +12,7 @@
  * Generates a sine wave via 16-bit phase accumulator and 256-entry flash table.
  * Output: 8-bit PWM on PB0 (TCA0 WO0) at ~13 kHz PWM rate.
  * Sample rate: ~7992 Hz (TCB0 CCMP=416, F_CPU=3,333,333 Hz).
- * Default tone: A4 = 440 Hz, tuning word M = 3610.
+ * Default tone: A4 = 440 Hz, tuning word M = 3608.
  *
  * Build:
  *   avr-gcc -mmcu=attiny3217 -nostartfiles -nodefaultlibs -o dds.elf dds.S
@@ -28,9 +28,9 @@
 #define TCB_CCMP     416            /* 0x01A0 — yields 7992 Hz sample clock     */
 
 /* Tuning words (M = round(f_out * 65536 / 7992)) */
-#define M_A4         3610           /* 440.24 Hz */
-#define M_C4         2145           /* 261.63 Hz */
-#define M_E4         2702           /* 329.88 Hz */
+#define M_A4         3608           /* 439.99 Hz */
+#define M_C4         2145           /* 261.58 Hz */
+#define M_E4         2703           /* 329.63 Hz */
 
 /* TCA0 split-mode register names use TCA0_SPLIT_* prefix in avr/io.h */
 
@@ -45,8 +45,8 @@
     jmp   default_isr            /* 0x0014  PORTC_PORT                         */
     jmp   default_isr            /* 0x0018  RTC_CNT                            */
     jmp   default_isr            /* 0x001C  RTC_PIT                            */
-    jmp   default_isr            /* 0x0020  TCA0_LUNF                          */
-    jmp   default_isr            /* 0x0024  TCA0_OVF                           */
+    jmp   default_isr            /* 0x0020  TCA0_LUNF/OVF                      */
+    jmp   default_isr            /* 0x0024  TCA0_HUNF                          */
     jmp   default_isr            /* 0x0028  TCA0_CMP0                          */
     jmp   default_isr            /* 0x002C  TCA0_CMP1                          */
     jmp   default_isr            /* 0x0030  TCA0_CMP2                          */
@@ -91,36 +91,36 @@ phase_step:     .byte 0             /* 16-bit tuning word M, low byte           
 .balign 256
 sine_table:
     .byte 128, 131, 134, 137, 140, 143, 146, 149
-    .byte 152, 155, 158, 161, 164, 167, 170, 172
-    .byte 175, 178, 181, 184, 186, 189, 192, 194
-    .byte 197, 199, 202, 204, 207, 209, 211, 213
-    .byte 216, 218, 220, 222, 224, 226, 227, 229
-    .byte 231, 232, 234, 235, 237, 238, 239, 241
-    .byte 242, 243, 244, 245, 246, 247, 248, 248
-    .byte 249, 250, 250, 251, 251, 252, 252, 252
-    .byte 252, 252, 252, 252, 251, 251, 250, 250
-    .byte 249, 248, 248, 247, 246, 245, 244, 243
-    .byte 242, 241, 239, 238, 237, 235, 234, 232
-    .byte 231, 229, 227, 226, 224, 222, 220, 218
-    .byte 216, 213, 211, 209, 207, 204, 202, 199
-    .byte 197, 194, 192, 189, 186, 184, 181, 178
-    .byte 175, 172, 170, 167, 164, 161, 158, 155
+    .byte 152, 155, 158, 162, 165, 167, 170, 173
+    .byte 176, 179, 182, 185, 188, 190, 193, 196
+    .byte 198, 201, 203, 206, 208, 211, 213, 215
+    .byte 218, 220, 222, 224, 226, 228, 230, 232
+    .byte 234, 235, 237, 238, 240, 241, 243, 244
+    .byte 245, 246, 248, 249, 250, 250, 251, 252
+    .byte 253, 253, 254, 254, 254, 255, 255, 255
+    .byte 255, 255, 255, 255, 254, 254, 254, 253
+    .byte 253, 252, 251, 250, 250, 249, 248, 246
+    .byte 245, 244, 243, 241, 240, 238, 237, 235
+    .byte 234, 232, 230, 228, 226, 224, 222, 220
+    .byte 218, 215, 213, 211, 208, 206, 203, 201
+    .byte 198, 196, 193, 190, 188, 185, 182, 179
+    .byte 176, 173, 170, 167, 165, 162, 158, 155
     .byte 152, 149, 146, 143, 140, 137, 134, 131
     .byte 128, 124, 121, 118, 115, 112, 109, 106
-    .byte 103, 100,  97,  94,  91,  88,  85,  83
-    .byte  80,  77,  74,  71,  69,  66,  63,  61
-    .byte  58,  56,  53,  51,  48,  46,  44,  42
-    .byte  39,  37,  35,  33,  31,  29,  28,  26
-    .byte  24,  23,  21,  20,  18,  17,  16,  14
-    .byte  13,  12,  11,  10,   9,   8,   7,   7
-    .byte   6,   5,   5,   4,   4,   3,   3,   3
-    .byte   3,   3,   3,   3,   4,   4,   5,   5
-    .byte   6,   7,   7,   8,   9,  10,  11,  12
-    .byte  13,  14,  16,  17,  18,  20,  21,  23
-    .byte  24,  26,  28,  29,  31,  33,  35,  37
-    .byte  39,  42,  44,  46,  48,  51,  53,  56
-    .byte  58,  61,  63,  66,  69,  71,  74,  77
-    .byte  80,  83,  85,  88,  91,  94,  97, 100
+    .byte 103, 100,  97,  93,  90,  88,  85,  82
+    .byte  79,  76,  73,  70,  67,  65,  62,  59
+    .byte  57,  54,  52,  49,  47,  44,  42,  40
+    .byte  37,  35,  33,  31,  29,  27,  25,  23
+    .byte  21,  20,  18,  17,  15,  14,  12,  11
+    .byte  10,   9,   7,   6,   5,   5,   4,   3
+    .byte   2,   2,   1,   1,   1,   0,   0,   0
+    .byte   0,   0,   0,   0,   1,   1,   1,   2
+    .byte   2,   3,   4,   5,   5,   6,   7,   9
+    .byte  10,  11,  12,  14,  15,  17,  18,  20
+    .byte  21,  23,  25,  27,  29,  31,  33,  35
+    .byte  37,  40,  42,  44,  47,  49,  52,  54
+    .byte  57,  59,  62,  65,  67,  70,  73,  76
+    .byte  79,  82,  85,  88,  90,  93,  97, 100
     .byte 103, 106, 109, 112, 115, 118, 121, 124
 
 /* ── Default ISR ─────────────────────────────────────────────────────────── */
@@ -132,7 +132,7 @@ default_isr:
  * dds_isr — advance the phase accumulator and write the next PWM sample
  *
  * Cycle budget: 417 cycles per sample period
- * Cycle cost:   ~52 cycles (12.5% CPU)
+ * Cycle cost:   ~61 cycles (14.6% CPU; PUSH=1, POP=2 on AVRxt)
  *
  * Register use:
  *   r16  scratch (SREG save slot, interrupt flag clear, PWM zero-extend)
@@ -145,16 +145,16 @@ default_isr:
  */
 dds_isr:
     /* ── Prologue: save SREG and all used registers ─────────────────── */
-    push  r16                            /* 2 cycles                     */
+    push  r16                            /* 1 cycle                      */
     in    r16, _SFR_IO_ADDR(SREG)        /* 1 cycle                      */
-    push  r16                            /* 2 cycles: save SREG value     */
-    push  r17                            /* 2 cycles                     */
-    push  r18                            /* 2 cycles                     */
-    push  r19                            /* 2 cycles                     */
-    push  r20                            /* 2 cycles                     */
-    push  r21                            /* 2 cycles                     */
-    push  r30                            /* 2 cycles: save ZL             */
-    push  r31                            /* 2 cycles: save ZH             */
+    push  r16                            /* 1 cycle: save SREG value      */
+    push  r17                            /* 1 cycle                      */
+    push  r18                            /* 1 cycle                      */
+    push  r19                            /* 1 cycle                      */
+    push  r20                            /* 1 cycle                      */
+    push  r21                            /* 1 cycle                      */
+    push  r30                            /* 1 cycle: save ZL              */
+    push  r31                            /* 1 cycle: save ZH              */
 
     /* ── Clear TCB0 CAPT interrupt flag (write 1 to clear) ──────────── */
     ldi   r16, TCB_CAPT_bm               /* 1 cycle                      */
@@ -272,8 +272,8 @@ reset_handler:
     rcall tca0_pwm_init
     rcall tcb0_dds_init
 
-    /* Load tuning word for A4 (440 Hz):  M = 3610 = 0x0E1A */
-    ldi   r16, lo8(M_A4)                /* 0x1A                         */
+    /* Load tuning word for A4 (440 Hz):  M = 3608 = 0x0E18 */
+    ldi   r16, lo8(M_A4)                /* 0x18                         */
     sts   phase_step, r16
     ldi   r16, hi8(M_A4)                /* 0x0E                         */
     sts   phase_step+1, r16

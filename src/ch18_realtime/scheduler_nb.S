@@ -34,8 +34,8 @@
     jmp   default_isr           /* 0x0014 PORTC_PORT                          */
     jmp   default_isr           /* 0x0018 RTC_CNT                             */
     jmp   default_isr           /* 0x001C RTC_PIT                             */
-    jmp   default_isr           /* 0x0020 TCA0_LUNF                           */
-    jmp   default_isr           /* 0x0024 TCA0_OVF                            */
+    jmp   default_isr           /* 0x0020 TCA0_LUNF/OVF                       */
+    jmp   default_isr           /* 0x0024 TCA0_HUNF                           */
     jmp   default_isr           /* 0x0028 TCA0_CMP0                           */
     jmp   default_isr           /* 0x002C TCA0_CMP1                           */
     jmp   default_isr           /* 0x0030 TCA0_CMP2                           */
