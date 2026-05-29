@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AVR Assembly Programming — an example-driven book</title>
+<meta name="description" content="An example-driven book on writing AVR assembly with the GNU toolchain (avr-gcc/avr-as), targeting the ATtiny3217 Curiosity Nano. Free PDF download with runnable code for every chapter.">
+<meta name="keywords" content="AVR assembly, avr-gcc, avr-as, ATtiny3217, Curiosity Nano, bare metal, microcontroller, embedded, UPDI, xmega3">
+<meta property="og:title" content="AVR Assembly Programming">
+<meta property="og:description" content="An example-driven book on writing AVR assembly with the GNU toolchain, targeting the ATtiny3217 Curiosity Nano. Free PDF + runnable code.">
+<meta property="og:type" content="website">
+<style>
+  :root {
+    --bg: #0d1117; --panel: #161b22; --border: #30363d;
+    --fg: #e6edf3; --muted: #9da7b3; --accent: #58a6ff; --accent2: #3fb950;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 0 20px; }
+  header { text-align: center; padding: 72px 20px 48px; border-bottom: 1px solid var(--border); }
+  h1 { font-size: 2.6rem; margin: 0 0 12px; letter-spacing: -0.5px; }
+  .tag { color: var(--muted); font-size: 1.15rem; max-width: 640px; margin: 0 auto 28px; }
+  .badges img { margin: 4px; vertical-align: middle; }
+  .btns { margin: 28px 0 4px; }
+  .btn {
+    display: inline-block; padding: 12px 22px; margin: 6px; border-radius: 8px;
+    font-weight: 600; border: 1px solid var(--border);
+  }
+  .btn-primary { background: var(--accent2); color: #04130a; border-color: var(--accent2); }
+  .btn-primary:hover { background: #46c95c; text-decoration: none; }
+  .btn-ghost { background: var(--panel); color: var(--fg); }
+  .btn-ghost:hover { border-color: var(--accent); text-decoration: none; }
+  section { padding: 44px 0; border-bottom: 1px solid var(--border); }
+  h2 { font-size: 1.5rem; margin: 0 0 18px; }
+  ul.cols { columns: 2; column-gap: 36px; padding-left: 18px; margin: 0; }
+  ul.cols li { margin: 0 0 8px; break-inside: avoid; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { color: var(--muted); font-weight: 600; }
+  code { background: var(--panel); border: 1px solid var(--border); border-radius: 4px; padding: 1px 6px; font-size: 0.9em; }
+  .card { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 18px 22px; margin: 14px 0; }
+  footer { text-align: center; color: var(--muted); padding: 36px 20px 60px; font-size: 0.92rem; }
+  @media (max-width: 600px) { ul.cols { columns: 1; } h1 { font-size: 2rem; } }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>AVR Assembly Programming</h1>
+    <p class="tag">An example-driven book on writing AVR assembly with the GNU
+      toolchain — <code>avr-gcc</code> / <code>avr-as</code> — targeting the
+      <strong>ATtiny3217 Curiosity Nano</strong>. Every topic ships with runnable code.</p>
+    <div class="badges">
+      <a href="https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book/releases/latest"><img src="https://img.shields.io/github/v/release/garyPenhook/AVR-assembly-with-avr-gcc-book?label=release" alt="Latest release"></a>
+      <img src="https://img.shields.io/badge/target-ATtiny3217-blue" alt="Target ATtiny3217">
+      <img src="https://img.shields.io/badge/toolchain-avr--gcc%20%2F%20avr--as-green" alt="Toolchain">
+      <img src="https://img.shields.io/badge/license-CC%20BY--NC--ND%204.0%20%2B%20MIT-lightgrey" alt="License">
+    </div>
+    <div class="btns">
+      <a class="btn btn-primary" href="https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book/releases/latest/download/avr-assembly-programming.pdf">⬇ Download the PDF</a>
+      <a class="btn btn-ghost" href="https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book">View on GitHub</a>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<section>
+  <h2>What the book covers</h2>
+  <ul class="cols">
+    <li>AVR architecture: register file, SREG, stack, memory map</li>
+    <li>GAS syntax, directives, sections, macros, and <code>objdump</code></li>
+    <li>The instruction set: operands, flags, branches, skips, the ABI</li>
+    <li>Load/store addressing, pointer registers, flash &amp; SRAM access</li>
+    <li>Multi-byte arithmetic, multiply/divide, fixed-point, BCD, CORDIC</li>
+    <li>GPIO, interrupts, clock/power control</li>
+    <li>Timers, USART, SPI, TWI/I²C, ADC</li>
+    <li>UPDI programming and bootloader self-programming</li>
+    <li>GDB debugging, cycle counting, optimization, linker scripts</li>
+    <li>Appendices: registers, ISA, GAS directives, avrdude workflows</li>
+  </ul>
+</section>
+
+<section>
+  <h2>Chapters &amp; runnable examples</h2>
+  <p>Each chapter has prose plus matching buildable examples in <code>src/</code>.</p>
+  <table>
+    <tr><th>#</th><th>Topic</th></tr>
+    <tr><td>1–2</td><td>Introduction, number systems, AVR architecture</td></tr>
+    <tr><td>3–4</td><td>GAS syntax, GDB debugging, the instruction set</td></tr>
+    <tr><td>5–8</td><td>Load/store, arithmetic, bit math, branches, subroutines</td></tr>
+    <tr><td>9–10</td><td>GPIO, interrupts, clock &amp; power control</td></tr>
+    <tr><td>11–13</td><td>Timers, USART, SPI/TWI</td></tr>
+    <tr><td>14–15</td><td>C/assembly integration, optimization</td></tr>
+    <tr><td>16</td><td>UPDI and bootloader / self-programming</td></tr>
+    <tr><td>17–19</td><td>Bit math, real-time/DDS, CORDIC</td></tr>
+    <tr><td>20</td><td>ADC and digital filters</td></tr>
+    <tr><td>App.</td><td>Registers, ISA, GAS directives, linker scripts, avrdude, binary inspection</td></tr>
+  </table>
+  <div class="card">
+    Bonus example sets: OLED displays, I²C sensors (incl. DS3231 RTC), and the
+    Curiosity Nano <strong>Explorer</strong> board — all under
+    <a href="https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book/tree/main/src"><code>src/</code></a>.
+  </div>
+</section>
+
+<section>
+  <h2>Build it yourself</h2>
+  <p>Clone the repo and build the combined PDF with <a href="https://pandoc.org/">pandoc</a> + XeLaTeX:</p>
+  <div class="card"><code>git clone https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book.git</code><br>
+  <code>cd AVR-assembly-with-avr-gcc-book &amp;&amp; make pdf</code></div>
+</section>
+
+<section>
+  <h2>License</h2>
+  <p><strong>Book text, figures, and prose</strong> — CC BY-NC-ND 4.0 (attribution, no commercial use, no derivatives).<br>
+  <strong>Source-code examples</strong> in <code>src/</code> — MIT. Reuse the assembly freely in your own projects.</p>
+</section>
+
+</div>
+
+<footer>
+  Author: Dazed_N_Confused ·
+  <a href="https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book">github.com/garyPenhook/AVR-assembly-with-avr-gcc-book</a>
+</footer>
+</body>
+</html>
