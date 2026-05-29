@@ -101,6 +101,15 @@ Makefile                  combined PDF build
 TODO.md                   roadmap and missing subject matter
 ```
 
+## License
+
+This project is dual-licensed:
+
+- **Book text, figures, and prose** — [CC BY-NC-ND 4.0](LICENSE)
+  (attribution required, no commercial use, no derivatives).
+- **Source-code examples** in `src/`, `scripts/`, and `book/ch*/src/` —
+  [MIT](LICENSE-CODE). Use the code freely in your own projects.
+
 ## Current Status
 
 The book has a complete combined PDF build and includes chapters through ADC
