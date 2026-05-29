@@ -14,6 +14,10 @@ timing, and build artifacts you can inspect.
 **[Download the latest PDF](https://github.com/garyPenhook/AVR-assembly-with-avr-gcc-book/releases/latest/download/avr-assembly-programming.pdf)**
 &nbsp;·&nbsp; 21 chapters + appendices &nbsp;·&nbsp; runnable assembly for every topic.
 
+**Website:** [garypenhook.github.io/AVR-assembly-with-avr-gcc-book](https://garypenhook.github.io/AVR-assembly-with-avr-gcc-book/)
+
+[![AVR Assembly Programming landing page](docs/assets/landing-page.png)](https://garypenhook.github.io/AVR-assembly-with-avr-gcc-book/)
+
 Author: Dazed_N_Confused
 
 Assistance note: ChatGPT was used for datasheet and application-note
