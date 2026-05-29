@@ -80,6 +80,26 @@ avr-objcopy -O ihex <name>.elf <name>.hex
 avrdude -p t3217 -c serialupdi -P /dev/ttyUSB0 -U flash:w:<name>.hex:i
 ```
 
+## Datasheet verification
+
+The device-side register addresses and command bytes in every driver were
+checked against the manufacturers' datasheets:
+
+```
+MCP9808    TA register 0x05; integer = bits 11..4, sign = bit12
+VCNL4200   ALS_CONF 0x00, PS_CONF12 0x03, PS_DATA 0x08, ALS_DATA 0x09 (LSB-first)
+AT24CM02   device byte 0x54 | (A17<<1 | A16), then 2 word-address bytes
+PAC194X    REFRESH 0x00 (send-byte), VBUS1 0x07 (07h-0Ah), MSB-first
+MCP23008   IODIR 0x00, GPPU 0x06, GPIO 0x09
+MCP4821    0x30 = GA(bit13)=1x gain, SHDN(bit12)=active
+25CSM04    WREN 0x06, WRITE 0x02, READ 0x03, RDSR 0x05; 24-bit addr; RDY/BUSY bit0
+SSD1306    control byte 0x00 = command stream, 0x40 = data stream
+ATECC608B  word address 0x03, Info opcode 0x30, CRC-16 poly 0x8005 (LSB-first)
+```
+
+The MCU-side register usage (TWI0/SPI0/ADC0/TCA0/CLKCTRL) follows the local
+ATtiny3216/17 datasheet and is validated by the assembler against `<avr/io.h>`.
+
 ## Notes and caveats
 
 - `_gc` group codes (e.g. `TWI_MCMD_STOP_gc`) are C enums in `<avr/io.h>` and
