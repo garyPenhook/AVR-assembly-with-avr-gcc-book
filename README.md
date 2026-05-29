@@ -44,6 +44,15 @@ The primary target is the ATtiny3217 Curiosity Nano using `avr-gcc`,
 carry over to other AVR parts, but register names, memory maps, interrupt
 vectors, and peripheral details are ATtiny3217-specific unless noted.
 
+## A Taste of the Code
+
+A complete blink program for the ATtiny3217 — every example in the book is this
+self-contained and buildable:
+
+![ATtiny3217 LED blink in AVR assembly](docs/assets/code-example.png)
+
+See [`src/appendix_f/blink.S`](src/appendix_f/blink.S) for the source.
+
 ## Chapters
 
 Each chapter has prose in `book/` and matching buildable examples in `src/`.
