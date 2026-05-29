@@ -11,7 +11,8 @@
  * Build from ch15_optimisation/:
  *   avr-gcc -mmcu=attiny3217 -x assembler-with-cpp -g3 -Wa,--gdwarf-2 \
  *       -nostartfiles -o bench.elf \
- *       src/bench_harness.S src/memcpy_naive.S src/memcpy_fast.S src/lut_sin.S
+ *       src/bench_harness.S src/memcpy_naive.S src/memcpy_fast.S \
+ *       src/lut_sin.S src/lut_interp.S src/horner.S
  *
  * The harness gives the linker concrete call sites and data symbols so
  * avr-objdump and avr-nm can be used to inspect size and instruction flow.
@@ -44,6 +45,14 @@ dst_fast:
 .global sin_sample
 sin_sample:
     .zero   1
+
+.global interp_sample
+interp_sample:
+    .zero   1
+
+.global horner_sample
+horner_sample:
+    .zero   2
 
 .section .text
 
@@ -98,6 +107,20 @@ fill_src:
     ldi     r24, 64             /* angle = 0x40                                */
     rcall   sin8                /* r24 = sin_table[64]                         */
     sts     sin_sample, r24     /* store result so objdump/GDB can inspect it  */
+
+    /* ── Test interp8: segment i=0, fraction f=128 (halfway) ───────────────
+     * T[0]=128, T[1]=176, delta=+48; y = 128 + (48*128 >> 8) = 152.        */
+    ldi     r24, 0              /* index i = 0                                 */
+    ldi     r22, 128            /* fraction f = 0x80 (midpoint)                */
+    rcall   interp8             /* r24 = interpolated value (expect 152)       */
+    sts     interp_sample, r24  /* store result for inspection                 */
+
+    /* ── Test horner8: p(x) = 2x^2 + 3x + 5 at x=12 ────────────────────────
+     * 2*144 + 36 + 5 = 329 = 0x0149; low byte first in horner_sample.      */
+    ldi     r24, 12             /* x = 12                                      */
+    rcall   horner8             /* R25:R24 = p(12) (expect 0x0149 = 329)       */
+    sts     horner_sample, r24      /* low byte                                */
+    sts     horner_sample+1, r25    /* high byte                               */
 
 /* ── bench_done: inspect memory here in GDB / avr-objdump ───────────────── */
 .global bench_done

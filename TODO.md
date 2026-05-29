@@ -2,14 +2,17 @@
 
 ## Math Topics for AVR Assembly
 
-7. Linear interpolation between LUT entries
-8. Polynomial approximation with Horner's method
+7. [DONE] Linear interpolation between LUT entries (ch15, interp8 / lut_interp.S)
+8. [DONE] Polynomial approximation with Horner's method (ch15, horner8 / horner.S)
 9. Fast integer square root
 
 ## Missing Subject Matter To Add Later
 
-- Chapter 15: interpolation between LUT entries and Horner-style polynomial
-  approximation. Lookup tables are covered; these two topics are not yet written.
+- [DONE] Chapter 15: interpolation between LUT entries and Horner-style
+  polynomial approximation. Added sections "Interpolating Between Table Entries"
+  (interp8 / src/lut_interp.S, MULSU-based) and "Horner's Method for Polynomials"
+  (horner8 / src/horner.S). Disassembly and symbol sizes verified against the
+  real linked bench.elf (avr-gcc 16.1.0 / binutils 2.45).
 - EEPROM / nonvolatile user data: wear limits, update patterns, checksums,
   parameter blocks, and safe write workflows.
 - Watchdog and reset recovery: WDT setup, timeout choices, reset cause handling,
