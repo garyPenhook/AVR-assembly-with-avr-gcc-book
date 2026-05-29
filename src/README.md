@@ -106,7 +106,16 @@ ch20_adc/
 
 ch20a_filters/
     filters.S               Integer filter library: EMA, box, median, PID
+
+sensors/                    (extras, not tied to one chapter)
+    lm75_twi.S              LM75 I2C temperature sensor — register read
+
+oled/                       (extras, not tied to one chapter)
+    oled_ssd1306.S          SSD1306 128x64 OLED text — flash font (Ch.13)
 ```
+
+The `sensors/` and `oled/` directories collect peripheral examples that build
+on Chapter 13 but are not tied to a single chapter. Each has its own README.
 
 ## Building
 
