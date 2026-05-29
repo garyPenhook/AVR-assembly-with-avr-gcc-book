@@ -1,0 +1,216 @@
+#!/usr/bin/env bash
+#
+# avr-size - a drop-in size(1) for this AVR toolchain.
+#
+# Why this exists: the binutils 2.45 build under ~/.local/gcc-16.1.0-avr never
+# installed the 'size' program, and upstream GNU 'size' has no AVR "-C/--mcu"
+# memory-usage report (that is a Microchip patch). The only patched avr-size on
+# the machine is XC8's GNU size 2.26 (2016), whose device table is too old to
+# know attiny3217.
+#
+# This script provides the missing tool using the toolchain that IS installed:
+#   * section sizes come from avr-objdump -h  (reads any ELF this toolchain
+#     produces),
+#   * per-device flash/RAM/EEPROM sizes come from avr-gcc + avr-libc headers,
+#     so -C works for every device this toolchain supports, not a frozen table.
+#
+# Supported: default/-B/--format=berkeley, -A/--format=sysv,
+#            -C/--format=avr [--mcu=DEV], --version, --help.
+
+set -u
+
+selfdir="$(cd "$(dirname "$(readlink -f "$0")")" && pwd)"
+prefix="${0##*/}"; prefix="${prefix%size}"          # e.g. "avr-"
+OBJDUMP="${selfdir}/${prefix}objdump"
+GCC="${selfdir}/${prefix}gcc"
+[ -x "$OBJDUMP" ] || OBJDUMP="$(command -v ${prefix}objdump || command -v avr-objdump)"
+[ -x "$GCC" ]     || GCC="$(command -v ${prefix}gcc     || command -v avr-gcc)"
+
+# Self-retiring: this toolchain is refreshed from GCC-only GitHub builds, so a
+# real 'size' may show up later from a separate binutils install. If one ever
+# appears, hand off to it instead of emulating. Two possible spots, matching how
+# binutils installs: prefixed next to avr-gcc ($prefix/bin/avr-size) and
+# unprefixed next to avr-objdump ($prefix/<target>/bin/size).
+_me="$(readlink -f "$0")"
+for _cand in \
+    "$([ -x "$GCC" ]     && echo "$(dirname "$(readlink -f "$GCC")")/${prefix}size")" \
+    "$([ -x "$OBJDUMP" ] && echo "$(dirname "$(readlink -f "$OBJDUMP")")/size")"; do
+    [ -n "$_cand" ] && [ -x "$_cand" ] && [ "$(readlink -f "$_cand")" != "$_me" ] && exec "$_cand" "$@"
+done
+
+prog="${0##*/}"
+fmt="berkeley"
+mcu=""
+files=()
+
+usage() {
+    cat <<EOF
+Usage: $prog [option(s)] [file(s)]
+ Displays the sizes of sections inside binary files.
+  -A|-B|-C  --format={sysv|berkeley|avr}  Select output style (default berkeley)
+            --mcu=<avrmcu>            Device for AVR (-C) format
+  -h        --help                    Display this information
+  -V        --version                 Display this program's version number
+EOF
+}
+
+while [ $# -gt 0 ]; do
+    case "$1" in
+        -A|--format=sysv|--format=SysV)         fmt="sysv" ;;
+        -B|--format=berkeley|--format=Berkeley) fmt="berkeley" ;;
+        -C|--format=avr|--format=AVR)           fmt="avr" ;;
+        --format=*)   fmt="${1#--format=}" ;;
+        --mcu=*)      mcu="${1#--mcu=}" ;;
+        --mcu)        shift; mcu="${1:-}" ;;
+        --target=*)   : ;;                       # accepted, ignored
+        -x|--radix=16|-d|--radix=10|-o|--radix=8|--common|--totals) : ;;
+        --version|-V) echo "$prog (asm_book toolchain shim) backed by $("$OBJDUMP" --version | head -1)"; exit 0 ;;
+        -h|--help)    usage; exit 0 ;;
+        --)           shift; while [ $# -gt 0 ]; do files+=("$1"); shift; done; break ;;
+        -*)           echo "$prog: unrecognized option '$1'" >&2; usage >&2; exit 1 ;;
+        *)            files+=("$1") ;;
+    esac
+    shift
+done
+
+[ "${#files[@]}" -eq 0 ] && files+=("a.out")
+
+# Echo "text data bss" for one object/ELF file, classified the GNU size way:
+#   not-loaded allocated section  -> bss   (.bss/.noinit)
+#   loaded read-only/code section -> text  (.text/.rodata/vectors)
+#   loaded writable section       -> data  (.data)
+section_sizes() {
+    "$OBJDUMP" -h "$1" 2>/dev/null | awk '
+        /^[[:space:]]*[0-9]+[[:space:]]/ {
+            size = strtonum("0x" $3)
+            getline flags
+            if (flags !~ /ALLOC/) next
+            if (flags !~ /LOAD/)            { bss  += size; next }
+            if (flags ~ /READONLY/ || flags ~ /CODE/) { text += size; next }
+            data += size
+        }
+        END { printf "%d %d %d", text+0, data+0, bss+0 }'
+}
+
+# Built-in flash/ram/eeprom byte sizes, used when avr-libc headers are not
+# installed (this toolchain is often used with hand-written register addresses).
+# Add devices here as needed.  Keep this in sync with the book's targets.
+builtin_device_sizes() {
+    case "$1" in
+        attiny3217|attiny3216) echo "32768 2048 256" ;;
+        attiny1617|attiny1616|attiny1614) echo "16384 2048 256" ;;
+        attiny817|attiny816|attiny814)    echo "8192 1024 128" ;;
+        attiny417|attiny416|attiny414)    echo "4096 512 128" ;;
+        atmega328p|atmega328)  echo "32768 2048 1024" ;;
+        atmega2560)            echo "262144 8192 4096" ;;
+        attiny85)              echo "8192 512 512" ;;
+        attiny84)              echo "8192 512 512" ;;
+        *)                     echo "0 0 0" ;;
+    esac
+}
+
+# Evaluate a C-style integer expression and echo the result, or echo nothing if
+# the string holds anything but hex/decimal integers, parens, whitespace and
+# + - * / operators.  avr-libc expands FLASHEND etc. to things like
+# "((0x0000) + (32768) - 1)", so we must evaluate, not pattern-match a literal.
+_eval() {
+    case "$1" in
+        ""|*[!0-9a-fA-FxX+*/\ \(\)-]*) return 1 ;;
+    esac
+    ( echo "$(( $1 ))" ) 2>/dev/null
+}
+
+# Echo "FLASH RAM EEPROM" byte sizes for $mcu.  The built-in table is authority
+# for the book's targets (fast, no compiler call); for anything else we ask the
+# toolchain's own avr-libc headers, so -C tracks whatever devices it supports.
+# EEPROM is computed as 0 because the AVR -C report does not show it.
+device_sizes() {
+    local m="$1" F R E vals fe re rs
+    [ -n "$m" ] || { echo "0 0 0"; return; }
+
+    read -r F R E <<<"$(builtin_device_sizes "$m")"
+    if [ "${F:-0}" -gt 0 ] 2>/dev/null; then echo "$F $R $E"; return; fi
+
+    vals=$(printf '#include <avr/io.h>\n__F FLASHEND\n__R RAMEND\n__S RAMSTART\n' \
+            | "$GCC" -mmcu="$m" -E -P -x c - 2>/dev/null \
+            | sed -E 's/([0-9a-fA-F])[uUlL]+/\1/g')        # strip integer suffixes
+    fe=$(_eval "$(awk '/^__F /{sub(/^__F +/,"");print;exit}' <<<"$vals")")
+    re=$(_eval "$(awk '/^__R /{sub(/^__R +/,"");print;exit}' <<<"$vals")")
+    rs=$(_eval "$(awk '/^__S /{sub(/^__S +/,"");print;exit}' <<<"$vals")")
+
+    if [ -n "$fe" ]; then
+        F=$(( fe + 1 ))                                    # flash starts at 0
+        if   [ -n "$re" ] && [ -n "$rs" ]; then R=$(( re - rs + 1 ))
+        elif [ -n "$re" ];                 then R=$(( re + 1 ))
+        else R=0; fi
+        echo "$F $R 0"; return
+    fi
+    echo "0 0 0"
+}
+
+print_berkeley_header() { printf '%7s %7s %7s %7s %7s %s\n' text data bss dec hex filename; }
+
+print_berkeley() {
+    local f="$1" t d b dec
+    read -r t d b <<<"$(section_sizes "$f")"
+    dec=$(( t + d + b ))
+    printf '%7d %7d %7d %7d %7x %s\n' "$t" "$d" "$b" "$dec" "$dec" "$f"
+}
+
+print_avr() {
+    local f="$1" t d b prog ram FL RA EE
+    read -r t d b <<<"$(section_sizes "$f")"
+    read -r FL RA EE <<<"$(device_sizes "$mcu")"
+    prog=$(( t + d ))         # flash:  .text + .data(+ .bootloader)
+    ram=$(( d + b ))          # sram:   .data + .bss + .noinit
+
+    echo "AVR Memory Usage"
+    echo "----------------"
+    if [ -n "$mcu" ] && [ "$FL" -gt 0 ]; then
+        echo "Device: $mcu"
+    else
+        echo "Device: Unknown"
+    fi
+    echo
+    if [ "$FL" -gt 0 ]; then
+        printf 'Program: %8d bytes (%.1f%% Full)\n' "$prog" "$(awk "BEGIN{print $prog*100/$FL}")"
+    else
+        printf 'Program: %8d bytes\n' "$prog"
+    fi
+    echo '(.text + .data + .bootloader)'
+    echo
+    if [ "$RA" -gt 0 ]; then
+        printf 'Data: %11d bytes (%.1f%% Full)\n' "$ram" "$(awk "BEGIN{print $ram*100/$RA}")"
+    else
+        printf 'Data: %11d bytes\n' "$ram"
+    fi
+    echo '(.data + .bss + .noinit)'
+    echo
+}
+
+print_sysv() {
+    local f="$1" t d b
+    read -r t d b <<<"$(section_sizes "$f")"
+    echo "$f  :"
+    printf '%-12s %10s %10s\n' section size addr
+    printf '%-12s %10d %10s\n' .text "$t" "(merged)"
+    printf '%-12s %10d %10s\n' .data "$d" "(merged)"
+    printf '%-12s %10d %10s\n' .bss  "$b" "(merged)"
+    printf '%-12s %10d\n'      Total "$(( t + d + b ))"
+    echo
+}
+
+case "$fmt" in
+    berkeley)
+        print_berkeley_header
+        for f in "${files[@]}"; do print_berkeley "$f"; done
+        ;;
+    avr)
+        for f in "${files[@]}"; do print_avr "$f"; done
+        ;;
+    sysv)
+        for f in "${files[@]}"; do print_sysv "$f"; done
+        ;;
+    *)
+        echo "$prog: invalid argument to --format: $fmt" >&2; exit 1 ;;
+esac

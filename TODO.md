@@ -18,6 +18,26 @@
   BOOTEND, clock-related fuses, and UPDI-safe habits.
 - Practical build and linker workflow: multi-file assembly projects, map files,
   section placement, symbol exchange, and reproducible builds.
+- Toolchain binary inspection (new appendix "Appendix F: Inspecting Your
+  Binaries", appendix_f_inspecting_binaries.md), built around one consistent
+  worked binary (blink.S on PA3) so all output matches:
+  [DONE] Tier 1 essential: avr-objdump (-d/-S/-h), avr-objcopy (-O ihex),
+         avr-size (-C --mcu=).
+  [TODO] Tier 2 supporting: avr-nm, avr-readelf, avr-addr2line.
+  [TODO] Tier 3 brief/skip: avr-gcc as assembler/linker driver (sidebar),
+         avr-ar/ranlib (one line), skip c++filt/strings.
+  Already covered: avr-as (App C), avr-ld (App D), avrdude (App E),
+  avr-gdb (ch03a). Also consider an inline objdump/size "look at what you just
+  made" sidebar early in ch03.
+  NOTE: Tier 1 listings verified against real avr-gcc 16.1.0 / binutils output;
+  worked source at src/appendix_f/blink.S (build: avr-gcc -mmcu=attiny3217
+  -nostartfiles -e main blink.S -o blink.elf). Verified exactly: avr-objdump -d
+  (__ctors_end label, fb cf rjmp, .L1^B1), avr-objcopy .hex (B4 checksum),
+  avr-size Berkeley (22 0 0 22 16). NOT fully verifiable here: avr-size -C
+  device name + "% Full" -- the only avr-size on this box is the XC8 build,
+  which prints "Device: Unknown" / no percent for attiny3217; appendix shows
+  the device-aware output and notes the XC8 wrinkle. avr-size is absent from
+  ~/.local/bin; it lives at /opt/microchip/xc8/.../avr/bin.
 - Testing and simulation: simavr or equivalent workflows, unit-style tests for
   assembly routines, and regression checks for examples.
 - C and assembly integration: callable assembly functions, inline asm constraints,
