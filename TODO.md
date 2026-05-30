@@ -51,8 +51,61 @@
   ABI examples, structs, pointers, clobbers, and linker symbols.
 - Defensive firmware: watchdog recovery, fault counters, CRC/version metadata,
   boot failure paths, and safe peripheral initialization.
-- Advanced peripherals: event system, analog comparator, DAC, configurable
-  custom logic, and deeper PWM patterns.
+- Advanced peripherals. NOTE: the book uses sequential chapter numbers only
+  (directory letters like ch20a are just a sort key; pandoc --number-sections
+  renumbers 1..N). Do not add user-visible "lettered" chapters. Placement:
+  - [DONE] Deeper PWM patterns -> ch11_timer. timer_pwm.S (single-slope, WO0=PB0,
+    PER=999/CMP0=250, 25% @ ~3.33kHz) is now wired into "Extending: Single-Slope
+    PWM" as a complete runnable listing (replaced the old inconsistent inline
+    snippet that used PER=204/CMP0=102). Added center-aligned dual-slope: new
+    companion src/ch11_timer/timer_pwm_ds.S (WGMODE DSBOTTOM=0x7, PER=500/CMP0=125,
+    same 25% @ ~3.33kHz, builds clean), expanded "WO pins, more channels, and
+    dual-slope" subsection with the DSTOP=0x5/DSBOTH=0x6/DSBOTTOM=0x7 table +
+    counter behavior + dual-slope math (f = f_cpu/(presc × 2 × PER), duty =
+    CMP0/PER) + CMP0BUF-transfers-at-BOTTOM note, and updated the Summary block.
+    Both .S verified to assemble+link clean with avr-gcc 16.1.0 (40 bytes text).
+    Note: Makefile builds only the PDF from .md; src files aren't compiled by it.
+    [DONE] PDF rebuilt 2026-05-29 (make pdf, 541 pages, clean). WGMODE SINGLESLOPE=0x3 (verified header+
+    datasheet p.188). TCA0 WO default pins: WO0=PB0,WO1=PB1,WO2=PB2 (alt PB3/4/5
+    via PORTMUX); on-board LED is PA3 (NOT a normal-mode WO pin).
+  - Analog comparator (AC) + DAC -> new sections inside ch20_adc (NOT STARTED).
+    VERIFIED FACTS for next session (datasheet sec.29 AC, + ATDF, + header):
+      AC0 pins: AINP0=PA7, AINP1=PB5, AINP2=PB1, AINP3=PB6; AINN0=PA6, AINN1=PB4;
+                OUT=PA5. DAC0 OUT=PA6 (shared w/ AC0 AINN0; DAC can feed AC neg).
+      AC0.CTRLA bits: RUNSTDBY OUTEN INTMODE[5:4] LPMODE HYSMODE[2:1] ENABLE.
+      AC0.MUXCTRLA: INVERT(7) MUXPOS[4:3] MUXNEG[1:0].
+        MUXPOS: 0=AINP0,1=AINP1,2=AINP2,3=AINP3. MUXNEG:0=AINN0,1=AINN1,2=VREF,3=DAC.
+      AC0.STATUS: STATE(bit4)=live comparator output; CMP(bit0)=int flag (W1C).
+      group-config names (enum-> use .equ or value): AC_MUXPOS_PIN0..3_gc,
+        AC_MUXNEG_PIN0/PIN1/VREF/DAC_gc; bit masks AC_ENABLE_bm, AC_OUTEN_bm exist.
+      DAC ref via VREF: VREF_DAC0REFSEL_0V55/1V1/1V5/2V5/4V34_gc; VREF.CTRLB has
+        DAC0REFEN. DAC0.CTRLA: ENABLE(0)/OUTEN(6)/RUNSTDBY(7); DAC0.DATA 8-bit.
+        (CONFIRM DAC0.DATA alignment + VREF register names against datasheet
+        sec.28 DAC / VREF chapter before writing.)
+  - [DRAFT] Event System (EVSYS) + Configurable Custom Logic (CCL) ->
+    book/ch20b_event_ccl/ch20b.md, wired into Makefile after ch20a_filters.
+    First draft written; concepts + symbolic-constant listings complete.
+    CCL CONFIRMED (datasheet p.409): 2 LUTs + 1 SEQ; full register layout.
+    EVSYS AUDIT DONE (datasheet sec.15): generator lists (async: CCL/AC0/TCD0/
+    RTC/PORT; sync: TCB0/TCA0/PORT), user index tables (ASYNCUSER0..12,
+    SYNCUSER0..1) all in the chapter. KEY FIX: ADC0 is an async user; TCA0/TCB0
+    are sync gens -> original TCA0->ADC example was invalid, changed to RTC_OVF.
+    src examples written: src/ch20b_event_ccl/{evsys_pin_mirror,
+    ccl_not_via_evsys,adc_event_trigger}.S (use only verified EVSYS paths;
+    CCL demo routes output via EVSYS->EVOUTA/PA2 to avoid unconfirmed CCL pins).
+    BUILD-VERIFIED: all three .S assemble+link clean with stock avr-gcc 16.1.0.
+    Constants: _gc group-config names in iotn3217.h are C ENUM members (not
+    #define), so they are invisible to the assembler ("undefined reference");
+    _bm/_bp are #define and work in .S. Examples therefore use .equ from the
+    datasheet. (Original "not defined in iotn3217.h" claim was wrong — they ARE
+    defined, just as enums; identical in avr-libc and Microchip DFP headers.)
+    CCL PINS CONFIRMED (24-pin): LUT0 IN0=PA0 IN1=PA1 IN2=PA2 OUT=PA4(alt PB4);
+    LUT1 IN0=PC3 IN1=PC4 IN2=PC5 OUT=PA7(alt PC1). 20-pin SOIC omits PC4/PC5.
+    Source: datasheet Table 5-1 (printed p.16) via get_document_page (text DID
+    extract), cross-checked against DFP ATDF <signal> pad entries — both agree.
+    (NOTE: keyword search_documents fails on that table; get_document_page works.
+    Beware printed-page vs PDF-page off-by-one when rendering.)
+    [DONE] PDF rebuilt 2026-05-29 (make pdf, 541 pages, clean).
 
 ## Missing Math Topics To Add Later
 
