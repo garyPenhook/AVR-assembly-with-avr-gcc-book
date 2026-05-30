@@ -46,6 +46,7 @@ CHAPTERS := \
 	book/ch24_defensive/ch24.md \
 	book/ch25_c_asm_integration/ch25.md \
 	book/ch26_approx/ch26.md \
+	book/ch27_matrix/ch27.md \
 	book/appendices/_appendix_divider.md \
 	book/appendices/appendix_a_registers.md \
 	book/appendices/appendix_b_instruction_set.md \

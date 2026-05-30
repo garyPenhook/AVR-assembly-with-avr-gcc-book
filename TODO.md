@@ -196,4 +196,18 @@
   Rational atan x/(1+(9/32)x^2): 0.28deg vs 0.53deg for degree-3 poly (verified).
   Decision guide + cross-refs to ch17 isqrt / ch19 CORDIC. NEXT math topic:
   fixed-point matrix transforms.
-- Fixed-point matrix transforms for control and graphics-style projections
+- [DONE] Fixed-point matrix transforms -> NEW chapter book/ch27_matrix/ch27.md
+  (Makefile-wired, PDF ch38, 580 pp). Covers: Q15 matrix entries + the +1.0-not-
+  representable saturation gotcha (cos(0)=1.0 overflows int16 to -1.0 -> flips
+  sign), matrix-vector = dot products, ACCUMULATE-then-shift-once (round-each
+  loses N-1 LSB, measured: len2=1,len3=2,len4=3,len8=7), overflow/domain (32-bit
+  accumulator <2^31, result fits int16 for |v|<=16383 rotation), composing
+  C=B*A (order matters), 3x3 homogeneous (translation), projection (1 divide/
+  vertex reuse 1/z), CORDIC cross-ref. WORKED+verified: src/ch27_matrix/
+  mat2_vmul.S (2x2 Q15 x int vec, 32-bit accumulate, reuses smul32/asr32 from
+  ch26, 150 bytes). VERIFICATION: host model mat2ref.c (rotation sweep, max 1.0
+  unit err vs float); instruction-level AVR-carry sim confirms asm==C model bit-
+  for-bit on 400k in-domain cases (out-of-domain mismatches were accumulator
+  overflow / int16 result range, as expected & documented). numpy/host verified.
+
+ALL TODO subject-matter + math topics now complete. Book at 38 chapters / 580 pp.
