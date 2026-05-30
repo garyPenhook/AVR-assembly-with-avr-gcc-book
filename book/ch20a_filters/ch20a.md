@@ -348,7 +348,12 @@ output = sum / N
 
 The circular buffer replaces the oldest sample with the new one and adjusts the
 running sum by the difference. Division by N is an arithmetic right shift when N
-is a power of two.
+is a power of two. The circular (ring) buffer itself — the wrapping write index,
+the power-of-two `AND` mask, and why those choices matter — is developed in full
+in the "Circular Buffer for High-Throughput RX" section of the USART chapter.
+Here the buffer holds 16-bit samples rather than received bytes, and there is a
+single owner (the sample loop), so the lock-free producer/consumer reasoning
+does not apply; the wrap-and-index mechanics are identical.
 
 ### Implementation: N = 8 (M = 3 shifts)
 
