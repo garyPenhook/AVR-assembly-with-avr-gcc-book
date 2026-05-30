@@ -47,8 +47,23 @@
   HV-UPDI recovery), EESAVE, WDTCFG-at-boot+LOCK, BOOTEND/APPEND. src/ch22_fuses/
   fuse_read.S BUILD-VERIFIED (16 bytes). SYSCFG0 default 0xF6. Verified header +
   datasheet. PDF REBUILT 2026-05-29: make pdf, 559 pages, clean (was 541).
-- Practical build and linker workflow: multi-file assembly projects, map files,
-  section placement, symbol exchange, and reproducible builds.
+- [DONE] Practical build and linker workflow -> NEW chapter book/ch28_build/
+  ch28.md (Makefile-wired, PDF ch39, 586 pp). The *process* tying together the
+  reference appendices (C directives / D linker script / F inspection) + ch25
+  symbols: the 4-stage avr-gcc pipeline (-E/-S/-c), separate compilation (.o
+  defines+undefined symbols, .global, undefined/multiple-def errors, avr-ar
+  archives), --gc-sections (needs per-func .section + -e main; demoed 34->26 B
+  by dropping unused vec_scale), reading the .map file (symbol->addr->object,
+  Discarded sections, Memory Configuration), a real project Makefile (pattern
+  rule, incremental rebuild, objcopy to .hex, -MMD for C headers), reproducible
+  builds (ship .hex not ELF, pin toolchain/flags, -ffile-prefix-map; verified
+  hex byte-identical across 2 builds). ALL OUTPUT IS REAL avr-gcc 16.1.0:
+  runnable example project src/ch28_build/{main.S,vec.S,Makefile} (build-tested,
+  incremental rebuild + reproducible .hex confirmed). Cross-ref appendix D/E/F,
+  ch24 CRCSCAN+reproducible-hex pairing.
+
+ALL TODO subject-matter, math topics, AND build/linker workflow now complete.
+Book at 39 chapters / 586 pp.
 - Toolchain binary inspection (new appendix "Appendix F: Inspecting Your
   Binaries", appendix_f_inspecting_binaries.md), built around one consistent
   worked binary (blink.S on PA3) so all output matches:
