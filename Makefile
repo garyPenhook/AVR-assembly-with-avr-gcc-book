@@ -40,6 +40,10 @@ CHAPTERS := \
 	book/ch20_adc/ch20.md \
 	book/ch20a_filters/ch20a.md \
 	book/ch20b_event_ccl/ch20b.md \
+	book/ch21_eeprom/ch21.md \
+	book/ch22_fuses/ch22.md \
+	book/ch23_watchdog_reset/ch23.md \
+	book/ch24_defensive/ch24.md \
 	book/appendices/_appendix_divider.md \
 	book/appendices/appendix_a_registers.md \
 	book/appendices/appendix_b_instruction_set.md \

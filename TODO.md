@@ -15,12 +15,38 @@
   (interp8 / src/lut_interp.S, MULSU-based) and "Horner's Method for Polynomials"
   (horner8 / src/horner.S). Disassembly and symbol sizes verified against the
   real linked bench.elf (avr-gcc 16.1.0 / binutils 2.45).
-- EEPROM / nonvolatile user data: wear limits, update patterns, checksums,
-  parameter blocks, and safe write workflows.
-- Watchdog and reset recovery: WDT setup, timeout choices, reset cause handling,
-  and fault-counter policy.
-- Fuses and device configuration: read/modify/write workflow, recovery risks,
-  BOOTEND, clock-related fuses, and UPDI-safe habits.
+- [DRAFT] EEPROM / nonvolatile user data -> NEW chapter book/ch21_eeprom/ch21.md,
+  wired into Makefile after ch20b. Covers: memory-mapped read (LDS @0x1400),
+  NVMCTRL write sequence (EEBUSY wait -> fill page buffer -> CPU_CCP=0x9D SPM key
+  -> ERWP within 4-instr window), CMD table (WP/ER/ERWP/PBC/EEER), wear (~100k
+  cyc/byte, read-before-write update, wear-leveling ring), integrity (additive
+  checksum, write-marker-last), erase (ER/EEER, blank=0xFF), pitfalls, 8 exercises.
+  Companion src/ch21_eeprom/eeprom_rw.S BUILD-VERIFIED clean (avr-gcc 16.1.0,
+  50 bytes); disasm confirms CCP store -> ERWP store within window.
+  VERIFIED FACTS (datasheet p.61-63 + header): EEPROM 256B @0x1400, 64B page x4;
+  NVMCTRL CTRLA(0x1000)/STATUS(0x1002 EEBUSY=bit1)/DATA(0x1006)/ADDR(0x1008);
+  CMD enum NONE=0,WP=1,ER=2,ERWP=3,PBC=4,CHER=5,EEER=6,FUSEWRITE=7(PDI only);
+  CPU_CCP=0x0034, key CCP_SPM=0x9D (CCP_IOREG=0xD8 is the OTHER key). EEPROM write
+  lets CPU keep running (unlike Flash); only touched page-buffer bytes are written.
+  [DONE] fuses chapter (ch22) + watchdog/reset (ch23) written; PDF rebuilt (559 pp).
+- [DONE] Watchdog and reset recovery -> NEW chapter book/ch23_watchdog_reset/ch23.md
+  (Makefile-wired, in PDF as ch34). WDT mental model, 11 periods (8ms-8.2s),
+  arm via CCP IOREG key 0xD8 + SYNCBUSY wait, WDR petting (from main flow, not
+  ISR), window mode + LOCK, RSTCTRL.RSTFR cause decode (PORF/BORF/EXTRF/WDRF/
+  SWRF/UPDIRF, W1C, clear-at-startup), software reset via RSTCTRL.SWRR SWRE,
+  EEPROM-backed fault-counter policy. src/ch23_watchdog_reset/wdt_demo.S
+  BUILD-VERIFIED (52 bytes); disasm confirms CCP->CTRLA window. KEY FACT: WDT/
+  RSTCTRL use IOREG key 0xD8, NOT NVM's SPM 0x9D. WDT clock = OSCULP32K 1.024kHz
+  (async, imprecise). Verified datasheet sec.19 (p.167-170) + sec.12 (p.95-97).
+- [DONE] Fuses and device configuration -> NEW chapter book/ch22_fuses/ch22.md
+  (Makefile-wired, in PDF as ch33). Fuses read-only at runtime (LDS @0x1280+idx,
+  FUSE_* symbols); WRITE is UPDI/PDI-only (FUSEWRITE PDI-only, NOT from firmware)
+  -> avrdude -U fuseN:w:0xNN:m read-modify-write workflow. Fuse map (WDTCFG/
+  BODCFG/OSCCFG/TCD0CFG/SYSCFG0/SYSCFG1/APPEND/BOOTEND), key fields OSCCFG.FREQSEL
+  (16/20MHz), SYSCFG0.RSTPINCFG (GPIO=0/UPDI=1 default/RESET=2 -> brick hazard,
+  HV-UPDI recovery), EESAVE, WDTCFG-at-boot+LOCK, BOOTEND/APPEND. src/ch22_fuses/
+  fuse_read.S BUILD-VERIFIED (16 bytes). SYSCFG0 default 0xF6. Verified header +
+  datasheet. PDF REBUILT 2026-05-29: make pdf, 559 pages, clean (was 541).
 - Practical build and linker workflow: multi-file assembly projects, map files,
   section placement, symbol exchange, and reproducible builds.
 - Toolchain binary inspection (new appendix "Appendix F: Inspecting Your
@@ -49,8 +75,22 @@
   (Curiosity Nano nEDBG) or host-side algorithm models for verification.
 - C and assembly integration: callable assembly functions, inline asm constraints,
   ABI examples, structs, pointers, clobbers, and linker symbols.
-- Defensive firmware: watchdog recovery, fault counters, CRC/version metadata,
-  boot failure paths, and safe peripheral initialization.
+- [DONE] Defensive firmware -> NEW capstone chapter book/ch24_defensive/ch24.md
+  (Makefile-wired, in PDF as ch35, 564 pp). Composes the ch21/22/23 safety nets +
+  NEW material: CRCSCAN flash-integrity (CTRLB.SRC -> CTRLA.ENABLE -> poll BUSY ->
+  check OK; Priority mode stalls CPU; NMIEN = clear-only-by-reset; checksum CRC-16
+  appended at section end FLASHEND-1/-1, BOOTEND*256-2/-1, APPEND*256-2/-1 by a
+  post-build tool e.g. srec_cat; fuse-driven pre-boot scan via SYSCFG0.CRCSRC =
+  CPU never starts on fail). Version/identity via SIGROW DEVICEID0..2 (0x1100) +
+  SERNUM0 (0x1103). Safe peripheral init patterns (configure-before-enable, set-
+  what-you-depend-on, disable-unused, verify-critical-writes, honor SYNCBUSY/CCP).
+  Defensive-boot orchestration diagram tying reset-cause -> CRC -> fault counter
+  -> EEPROM config check -> safe init -> watchdog. src/ch24_defensive/
+  crc_selfcheck.S BUILD-VERIFIED (28 bytes; honest caveat that OK=1 needs the
+  appended checksum, not demonstrable from a bare .S). Verified datasheet sec.27
+  CRCSCAN (p.392-396) + header. CRCSCAN regs: CTRLA(0x120 ENABLE0/NMIEN1/RESET7),
+  CTRLB(0x121 SRC[1:0]: FLASH=0/APPLICATION=1/BOOT=2, MODE=PRIORITY only),
+  STATUS(0x122 BUSY0/OK1).
 - Advanced peripherals. NOTE: the book uses sequential chapter numbers only
   (directory letters like ch20a are just a sort key; pandoc --number-sections
   renumbers 1..N). Do not add user-visible "lettered" chapters. Placement:
@@ -68,8 +108,20 @@
     [DONE] PDF rebuilt 2026-05-29 (make pdf, 541 pages, clean). WGMODE SINGLESLOPE=0x3 (verified header+
     datasheet p.188). TCA0 WO default pins: WO0=PB0,WO1=PB1,WO2=PB2 (alt PB3/4/5
     via PORTMUX); on-board LED is PA3 (NOT a normal-mode WO pin).
-  - Analog comparator (AC) + DAC -> new sections inside ch20_adc (NOT STARTED).
-    VERIFIED FACTS for next session (datasheet sec.29 AC, + ATDF, + header):
+  - [DRAFT] Analog comparator (AC) + DAC -> two new sections added to ch20_adc
+    ("The Analog Comparator (AC0)" + "The Digital-to-Analog Converter (DAC0)"),
+    chapter title updated to "ADC, Analog Comparator, and DAC". Added AC/DAC
+    pitfalls + 5 exercises (11-15). Companion sources src/ch20_adc/{ac_compare,
+    dac_output}.S written and BUILD-VERIFIED clean (avr-gcc 16.1.0; 44/26 bytes).
+    CORRECTIONS to the verified-facts block below, confirmed against the
+    datasheet this session: VREF.CTRLA holds DAC0REFSEL[2:0] (NOT CTRLA-vs-CTRLB
+    ambiguity); VREF.CTRLB bit0 = DAC0REFEN; reference is SHARED by AC0+DAC0.
+    DAC0REFSEL enum order is NON-monotonic: 0x0=0.55V,0x1=1.1V,0x2=2.5V,
+    0x3=4.34V,0x4=1.5V. DAC0.DATA is a single 8-bit right-aligned SFR (0x06A1);
+    DAC0 OUT=PA6 (func A). AC0 has only CTRLA/MUXCTRLA/INTCTRL/STATUS (no CTRLB,
+    no separate DACREF reg); AC_STATE_bp=4 (live), AC_CMP=bit0 (flag, W1C).
+    STILL TODO: rebuild PDF (make pdf).
+    ORIGINAL VERIFIED FACTS (datasheet sec.29 AC, + ATDF, + header):
       AC0 pins: AINP0=PA7, AINP1=PB5, AINP2=PB1, AINP3=PB6; AINN0=PA6, AINN1=PB4;
                 OUT=PA5. DAC0 OUT=PA6 (shared w/ AC0 AINN0; DAC can feed AC neg).
       AC0.CTRLA bits: RUNSTDBY OUTEN INTMODE[5:4] LPMODE HYSMODE[2:1] ENABLE.
