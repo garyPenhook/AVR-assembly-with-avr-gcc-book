@@ -73,8 +73,25 @@
   checks for examples. NOTE: simavr does not support the ATtiny3217 (AVRxt /
   avrxmega3) core, so it is not an option here; rely on on-hardware avr-gdb
   (Curiosity Nano nEDBG) or host-side algorithm models for verification.
-- C and assembly integration: callable assembly functions, inline asm constraints,
-  ABI examples, structs, pointers, clobbers, and linker symbols.
+- [DONE] C and assembly integration -> NEW chapter book/ch25_c_asm_integration/
+  ch25.md (Makefile-wired, PDF ch36, 570 pp). NOTE: the existing ch14_c_asm dir is
+  MISNAMED — it actually holds "CRC and Data Integrity" (CRC-8 + CRCSCAN), NOT
+  C/asm; this new chapter is the real C/asm material. Covers: avr-gcc ABI (call-
+  used r0/r18-r27/r30-r31, call-saved r2-r17/r28-r29, r1=0), arg allocation
+  (r25 down, even-aligned, low byte low reg), return (8b r24/16b r24:r25/32b
+  r22:r25/64b r18:r25), call asm-from-C + C-from-asm, pointer/array passing via
+  X/Y/Z, inline asm (constraints r/d/e/w/M/I, =/+ modifiers, cc/memory clobbers,
+  volatile), shared data + linker symbols. ALL ABI FACTS EMPIRICALLY VERIFIED by
+  compiling C with avr-gcc 16.1.0 and reading disasm. Sources src/ch25_c_asm_
+  integration/{asm_funcs.S, driver.c} BUILD+LINK verified (270 bytes). First src
+  chapter with a .c file alongside .S.
+  [RESOLVED] ch14 dir renamed ch14_c_asm -> ch14_crc (book/ + src/, Makefile
+  updated) to match its actual content ("CRC and Data Integrity"). CRCSCAN overlap
+  with ch24 fixed by LAYERING: ch14 = CRCSCAN mechanics (register map, CRC-16-CCITT
+  algo, checksum placement, NMI vector, fuse pre-boot); ch24 = applying it
+  defensively (keeps runnable crc_selfcheck.S + the OK-needs-checksum caveat, but
+  defers mechanics to ch14 via cross-ref). Bidirectional forward/back references
+  added. PDF still 570 pp, clean.
 - [DONE] Defensive firmware -> NEW capstone chapter book/ch24_defensive/ch24.md
   (Makefile-wired, in PDF as ch35, 564 pp). Composes the ch21/22/23 safety nets +
   NEW material: CRCSCAN flash-integrity (CTRLB.SRC -> CTRLA.ENABLE -> poll BUSY ->

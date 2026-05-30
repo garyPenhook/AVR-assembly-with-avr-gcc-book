@@ -44,6 +44,7 @@ CHAPTERS := \
 	book/ch22_fuses/ch22.md \
 	book/ch23_watchdog_reset/ch23.md \
 	book/ch24_defensive/ch24.md \
+	book/ch25_c_asm_integration/ch25.md \
 	book/appendices/_appendix_divider.md \
 	book/appendices/appendix_a_registers.md \
 	book/appendices/appendix_b_instruction_set.md \
