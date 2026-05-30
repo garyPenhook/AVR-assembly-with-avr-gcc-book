@@ -157,9 +157,9 @@ spm_fill_word:
 boot_main:
     /* initialise stack */
     ldi   r16, hi8(RAMEND)
-    out   SPH, r16
+    out   _SFR_IO_ADDR(SPH), r16
     ldi   r16, lo8(RAMEND)
-    out   SPL, r16
+    out   _SFR_IO_ADDR(SPL), r16
 
     rcall uart_init
 
