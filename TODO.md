@@ -178,5 +178,22 @@
 
 ## Missing Math Topics To Add Later
 
-- Polynomial and rational approximations beyond Horner's method
+- [DONE] Polynomial and rational approximations beyond Horner's method -> NEW
+  chapter book/ch26_approx/ch26.md (Makefile-wired, PDF ch37, 575 pp). Covers:
+  why Taylor is wrong default (error piles at interval end), minimax/equi-
+  oscillation, deriving coeffs on host (Remez/least-squares) + Chebyshev
+  economization, range reduction, fixed-point Q-format/overflow/rounding/
+  saturation, then rational P/Q (one divide buys shape) with the atan example.
+  WORKED EXAMPLE build+rigorously verified: src/ch26_approx/q15_sin.S (Q14 in,
+  Q15 out, degree-5 odd minimax, AVR201 signed 16x16 + asr32, saturating clamp,
+  144 bytes). Coeffs c1=32761,c3=-5434,c5=248 (Q15) from numpy least-squares.
+  VERIFICATION (beyond build): host model src/ch26_approx/sinref.c sweeps all
+  25737 inputs -> max err 7.6 LSB (2.3e-4) vs Taylor's ~148 LSB. An instruction-
+  level Python sim WITH CORRECT AVR CARRY (mul/mulsu set C=bit15) confirms the
+  asm == C model bit-for-bit on every input, and smul32 correct on 300k random
+  signed pairs. (First sim attempt FALSELY failed because it ignored the mul
+  carry flag feeding sbc — lesson: model C for the mulsu->sbc sign-extension.)
+  Rational atan x/(1+(9/32)x^2): 0.28deg vs 0.53deg for degree-3 poly (verified).
+  Decision guide + cross-refs to ch17 isqrt / ch19 CORDIC. NEXT math topic:
+  fixed-point matrix transforms.
 - Fixed-point matrix transforms for control and graphics-style projections
