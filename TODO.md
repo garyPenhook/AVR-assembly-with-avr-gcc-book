@@ -73,8 +73,10 @@ Book at 39 chapters / 586 pp.
   [DONE] Tier 3 brief/skip: avr-gcc as assembler/linker driver (sidebar),
          avr-ar/ranlib (one line), skip c++filt/strings.
   Already covered: avr-as (App C), avr-ld (App D), avrdude (App E),
-  avr-gdb (ch03a). Also consider an inline objdump/size "look at what you just
-  made" sidebar early in ch03.
+  avr-gdb (ch03a). [DONE] inline objdump/size "look at what you just made"
+  sidebar added early in ch03 (after the first assemble command, real blink.elf
+  output: __ctors_end disasm + avr-size 22 0 0 22 16), forward-refs the
+  end-of-chapter objdump section + Appendix F.
   NOTE: Tier 1 listings verified against real avr-gcc 16.1.0 / binutils output;
   worked source at src/appendix_f/blink.S (build: avr-gcc -mmcu=attiny3217
   -nostartfiles -e main blink.S -o blink.elf). Verified exactly: avr-objdump -d
