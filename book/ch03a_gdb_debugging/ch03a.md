@@ -796,6 +796,30 @@ effects. Status registers often clear flags by writing a one, and some data
 register reads advance FIFOs or clear interrupt states. A debugger memory window
 is not always passive.
 
+If you are using PyAvrOCD, there is also a more convenient way to inspect and
+modify I/O registers directly from GDB:
+
+```gdb
+(gdb) monitor ioregister PORTA.DIR      # read one register
+(gdb) monitor ioregister PORTA.DIR 0xff # write one register
+(gdb) monitor ioregister PORTA.DIRSET.DIRSET0
+                                        # read one bitfield
+(gdb) monitor ioregister PORTA.DIRSET.DIRSET0 1
+                                        # write one bitfield
+(gdb) monitor ioregister DIR*           # wildcard search across peripherals
+```
+
+The general form for a register is
+`monitor ioregister <peripheral>.<register> [<integer>]`. The general form for
+a bitfield is
+`monitor ioregister <peripheral>.<register>.<field> [<integer>]`. The
+`<ioreg-expression>` is a shell-style wildcard expression over register and
+bitfield names, so one command can match several objects. If you omit the
+`<peripheral>` part, PyAvrOCD searches across peripherals for matching register
+or bitfield names. If the expression matches a unique register, PyAvrOCD also
+prints its decoded bitfields. If you provide the optional integer argument, the
+matched unique register or bitfield is written with that value.
+
 This is especially important when debugging peripherals in later chapters:
 
 - Read the datasheet before repeatedly inspecting a status or data register.
