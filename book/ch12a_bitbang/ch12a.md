@@ -127,6 +127,17 @@ instruction. The pin is driven correctly and the bit cell's length never depends
 on what is being sent. (`VPORTB_OUT` is at I/O address `0x05`, in the
 `SBI`/`CBI`-addressable low range, so single-cycle bit writes are available.)
 
+One nuance the cycle count hides, visible only on a logic-analyzer trace: the
+block is 4 cycles either way, but the pin *changes* at a different point within
+those four cycles — at the `SBI`, one cycle in, for a `1`; at the `CBI`, three
+cycles in, for a `0`. So while each loop iteration is exactly one bit time, the
+edge itself sits up to two cycles earlier or later depending on the bit value. A
+capture therefore shows cell-to-cell intervals alternating a couple of cycles
+around the nominal rather than landing dead on it. At 9600 baud that is ~0.6% of
+a bit time, far inside a receiver's mid-bit sampling margin — but it is a real
+effect, and a reminder that "constant cycles per iteration" and "edge at a
+constant offset" are not the same guarantee.
+
 ---
 
 ## Assembling the Frame
