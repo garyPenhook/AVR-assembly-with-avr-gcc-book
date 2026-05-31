@@ -81,7 +81,7 @@ PANDOC_FLAGS := \
 	-V sansfont="DejaVu Sans" \
 	-V monofont="DejaVu Sans Mono" \
 	-V title="AVR Assembly Programming" \
-	-V author="Dazed\\_N\\_Confused; ChatGPT for datasheet/app-note extraction and typing help"
+	-V author="garyPenhook (Dazed\\_N\\_Confused)"
 
 .PHONY: pdf clean-pdf
 
