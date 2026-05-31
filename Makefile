@@ -1,7 +1,7 @@
 PDF_DIR := book/output/pdf
 PDF_NAME := avr-assembly-programming
 # Book revision label (for release notes / tags only; the repo ships one PDF).
-PDF_VERSION := v1.6.0
+PDF_VERSION := v1.7.0
 PDF_OUTPUT := $(PDF_DIR)/$(PDF_NAME).pdf
 PDF_LOG := $(PDF_DIR)/build.log
 
@@ -28,6 +28,7 @@ CHAPTERS := \
 	book/ch10a_power_clock/ch10a.md \
 	book/ch11_timer/ch11.md \
 	book/ch12_usart/ch12.md \
+	book/ch12a_bitbang/ch12a.md \
 	book/ch13_spi_twi/ch13.md \
 	book/ch14_crc/ch14.md \
 	book/ch14a_huffman/ch14a.md \

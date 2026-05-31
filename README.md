@@ -122,12 +122,12 @@ lines stripped (`.elf` binaries and `.md` notes excluded):
 ```text
 Language         files   raw lines   code (no comments/blanks)
 --------------------------------------------------------------
-Assembly (.S)       82      12,423                       6,679
+Assembly (.S)       83      12,539                       6,739
 Python (.py)         1         152                         118
 C (.c)               3         106                          77
 Makefile             1          32                          19
 --------------------------------------------------------------
-Total               87      12,713                       6,893
+Total               88      12,829                       6,953
 ```
 
 ## License
