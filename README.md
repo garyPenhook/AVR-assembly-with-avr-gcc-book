@@ -114,6 +114,22 @@ Makefile                  combined PDF build
 TODO.md                   roadmap and missing subject matter
 ```
 
+## Code Statistics
+
+Companion source under `src/` across all chapters, with comments and blank
+lines stripped (`.elf` binaries and `.md` notes excluded):
+
+```text
+Language         files   raw lines   code (no comments/blanks)
+--------------------------------------------------------------
+Assembly (.S)       82      12,423                       6,679
+Python (.py)         1         152                         118
+C (.c)               3         106                          77
+Makefile             1          32                          19
+--------------------------------------------------------------
+Total               87      12,713                       6,893
+```
+
 ## License
 
 This project is dual-licensed:
